@@ -296,10 +296,6 @@ CREATE POLICY "allow all" ON liga_state
       <button class="btn btn-primary" style="width:100%;padding:0.65rem;margin-top:0.25rem" onclick="doLogin()">Einloggen</button>
     </div>
     <div id="loginErr" class="alert alert-error hidden" style="margin-top:0.75rem"></div>
-    <div style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1rem;">
-      <button class="btn" style="width:100%;font-size:0.75rem" onclick="testConnection()">🔧 Verbindung testen</button>
-      <div id="testResult" style="margin-top:0.75rem;font-size:0.78rem;display:none;"></div>
-    </div>
   </div>
 </div>
 
@@ -385,8 +381,7 @@ CREATE POLICY "allow all" ON liga_state
       <div class="divider"></div>
       <div class="phase-indicator">
         <div class="phase-step" id="ph1">Phase 1 — Driver Swap</div>
-        <div class="phase-step" id="ph2">Phase 2 — Team Swap</div>
-        <div class="phase-step" id="ph3">Phase 3 — Open Draft</div>
+        <div class="phase-step" id="ph2">Phase 2 — Open Draft</div>
       </div>
       <div class="draft-layout">
         <div>
@@ -544,22 +539,16 @@ function continueAfterDevice() {
 // SUPABASE DB
 // ============================================================
 async function dbGet(key) {
-  const url = `${supabaseUrl}/rest/v1/liga_state?key=eq.${key}&select=value`;
-  console.log('[DB GET]', url);
-  const r = await fetch(url, {
+  const r = await fetch(`${supabaseUrl}/rest/v1/liga_state?key=eq.${key}&select=value`, {
     headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` }
   });
-  const text = await r.text();
-  console.log('[DB GET response]', r.status, text);
-  if (!r.ok) throw new Error(`DB read ${r.status}: ${text}`);
-  const data = JSON.parse(text);
+  if (!r.ok) throw new Error('DB read ' + r.status);
+  const data = await r.json();
   return data.length > 0 ? data[0].value : null;
 }
 
 async function dbSet(key, value) {
-  const url = `${supabaseUrl}/rest/v1/liga_state`;
-  console.log('[DB SET]', url, 'key:', key);
-  const r = await fetch(url, {
+  const r = await fetch(`${supabaseUrl}/rest/v1/liga_state`, {
     method: 'POST',
     headers: {
       apikey: supabaseKey,
@@ -569,9 +558,7 @@ async function dbSet(key, value) {
     },
     body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
   });
-  const text = await r.text();
-  console.log('[DB SET response]', r.status, text);
-  if (!r.ok) throw new Error(`DB write ${r.status}: ${text}`);
+  if (!r.ok) throw new Error('DB write ' + r.status);
 }
 
 function setSyncStatus(s) {
@@ -1008,13 +995,14 @@ function initDraft() {
   const swapPickers=[r[7],r[6],r[5],r[4]];
   const swapTargets=[r[0],r[1],r[2],r[3]];
   const picks=[];
+  // Phase 1: Driver Swap (rank 8→5, only with top 4)
   swapPickers.forEach((p,qi)=>picks.push({phase:1,pickerIdx:p,rank:qi+5,done:false,action:null}));
-  swapPickers.forEach((p,qi)=>picks.push({phase:2,pickerIdx:p,rank:qi+5,done:false,action:null}));
+  // Phase 2: Open Draft (rank 8→1, 2 picks each)
   for (let i=7;i>=0;i--) {
-    picks.push({phase:3,pickerIdx:r[i],rank:8-i,pickNum:1,done:false,action:null});
-    picks.push({phase:3,pickerIdx:r[i],rank:8-i,pickNum:2,done:false,action:null});
+    picks.push({phase:2,pickerIdx:r[i],rank:8-i,pickNum:1,done:false,action:null});
+    picks.push({phase:2,pickerIdx:r[i],rank:8-i,pickNum:2,done:false,action:null});
   }
-  state.draft={picks,currentPickIdx:0,phase1Locked:[],phase2Locked:[],swapTargets,complete:false};
+  state.draft={picks,currentPickIdx:0,phase1Locked:[],swapTargets,complete:false};
   state.appPhase='draft';
   saveStateToDB();
   renderDraft(); showView('viewDraft');
@@ -1034,7 +1022,7 @@ function renderDraft() {
   const phase=pick?pick.phase:4;
 
   // Phase indicator
-  for (let p=1;p<=3;p++) {
+  for (let p=1;p<=2;p++) {
     document.getElementById(`ph${p}`).className='phase-step'+(p===phase?' active':p<phase?' done':'');
   }
 
@@ -1045,7 +1033,7 @@ function renderDraft() {
     const isCurrent=idx===d.currentPickIdx;
     const div=document.createElement('div');
     div.className='pick-item'+(isCurrent?' current':pk.done?' done-pick':'');
-    const lbl=pk.phase===1?'Driver Swap':pk.phase===2?'Team Swap':`Open Pick #${pk.pickNum}`;
+    const lbl=pk.phase===1?'Driver Swap':`Open Pick #${pk.pickNum}`;
     const me=pk.pickerIdx===currentUser.playerIdx;
     div.innerHTML=`<div class="pick-dot"></div>
       <div>
@@ -1083,7 +1071,6 @@ function renderDraft() {
   }
 
   if (pick.phase===1) renderSwapPanel(body,pick,'driver');
-  else if (pick.phase===2) renderSwapPanel(body,pick,'team');
   else renderOpenDraftPanel(body,pick);
 }
 
@@ -1280,68 +1267,6 @@ async function nextDraft() {
   if (!currentUser?.isAdmin) return;
   state.ranking=[]; state.draft=null; state.appPhase='ranking';
   await saveStateToDB(); renderRanking(); showView('viewRanking');
-}
-
-async function testConnection() {
-  const el = document.getElementById('testResult');
-  el.style.display = 'block';
-  el.innerHTML = '<span style="color:var(--muted)">Teste Verbindung…</span>';
-
-  const steps = [];
-
-  // Step 1: URL + Key vorhanden?
-  const cfg = getConfig();
-  if (!cfg || !cfg.url || !cfg.key) {
-    el.innerHTML = '<span style="color:#f55">❌ Kein Setup gefunden. Bitte zuerst Setup machen.</span>'; return;
-  }
-  steps.push('✅ Config gefunden: ' + cfg.url);
-
-  // Step 2: GET Request
-  try {
-    const url = `${supabaseUrl}/rest/v1/liga_state?key=eq.state&select=value`;
-    const r = await fetch(url, {
-      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` }
-    });
-    const text = await r.text();
-    if (r.ok) {
-      steps.push(`✅ GET erfolgreich (${r.status}): ${text.substring(0,80)}`);
-    } else {
-      steps.push(`❌ GET Fehler (${r.status}): ${text.substring(0,120)}`);
-      el.innerHTML = steps.map(s=>`<div style="margin-bottom:0.4rem">${s}</div>`).join('');
-      return;
-    }
-  } catch(e) {
-    steps.push(`❌ GET Network Error: ${e.message}`);
-    el.innerHTML = steps.map(s=>`<div style="margin-bottom:0.4rem">${s}</div>`).join('');
-    return;
-  }
-
-  // Step 3: POST (Write) Test
-  try {
-    const r = await fetch(`${supabaseUrl}/rest/v1/liga_state`, {
-      method: 'POST',
-      headers: {
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify({ key: '_test', value: { ok: true }, updated_at: new Date().toISOString() })
-    });
-    const text = await r.text();
-    if (r.ok || r.status === 201) {
-      steps.push(`✅ POST (Schreiben) erfolgreich (${r.status})`);
-    } else {
-      steps.push(`❌ POST Fehler (${r.status}): ${text.substring(0,120)}`);
-    }
-  } catch(e) {
-    steps.push(`❌ POST Network Error: ${e.message}`);
-  }
-
-  el.innerHTML = steps.map(s => {
-    const color = s.startsWith('✅') ? 'var(--green)' : '#f55';
-    return `<div style="color:${color};margin-bottom:0.4rem">${s}</div>`;
-  }).join('');
 }
 
 // ============================================================
