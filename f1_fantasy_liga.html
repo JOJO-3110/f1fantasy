@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Fantasy Liga</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #e10600; --red-dark: #a00400;
+    --bg: #0a0a0f; --bg2: #111118; --bg3: #1a1a24;
+    --card: #16161f; --border: #2a2a38;
+    --text: #f0f0f5; --muted: #6b6b80;
+    --accent: #ff6b35; --gold: #ffd700; --silver: #c0c0c0; --bronze: #cd7f32; --green: #00d4aa;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; overflow-x:hidden; }
+
+  /* ── DEVICE SELECTOR ── */
+  .device-wrap {
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem;
+  }
+  .device-card {
+    background:var(--card); border:1px solid var(--border); border-radius:16px;
+    padding:3rem 2rem; width:100%; max-width:480px; text-align:center;
+  }
+  .device-logo { font-family:'Bebas Neue',cursive; font-size:2.8rem; letter-spacing:4px; margin-bottom:0.25rem; }
+  .device-logo span { color:var(--red); }
+  .device-sub { color:var(--muted); font-size:0.85rem; margin-bottom:3rem; letter-spacing:1px; text-transform:uppercase; }
+  .device-btns { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .device-btn {
+    background:var(--bg3); border:2px solid var(--border); border-radius:12px;
+    padding:2rem 1rem; cursor:pointer; transition:all 0.2s;
+    display:flex; flex-direction:column; align-items:center; gap:0.75rem;
+  }
+  .device-btn:hover { border-color:var(--red); background:rgba(225,6,0,0.06); }
+  .device-btn .device-icon { font-size:2.5rem; line-height:1; }
+  .device-btn .device-label { font-family:'Bebas Neue',cursive; font-size:1.3rem; letter-spacing:2px; color:var(--text); }
+  .device-btn .device-desc { font-size:0.72rem; color:var(--muted); }
+
+  /* ── MOBILE MODE ── */
+  body.mobile-mode header {
+    height:56px; padding:0 1rem; flex-wrap:nowrap;
+  }
+  body.mobile-mode .logo { font-size:1.3rem; letter-spacing:2px; }
+  body.mobile-mode .header-right { gap:0.4rem; }
+  body.mobile-mode .btn { padding:0.35rem 0.6rem; font-size:0.7rem; }
+  body.mobile-mode #adminBtns { flex-wrap:wrap; gap:0.35rem; }
+  body.mobile-mode main { padding:1rem; }
+  body.mobile-mode .section-title { font-size:1.6rem; }
+  body.mobile-mode .player-grid { grid-template-columns:1fr; }
+  body.mobile-mode .draft-layout { grid-template-columns:1fr; }
+  body.mobile-mode .ranking-grid { grid-template-columns:1fr; }
+  body.mobile-mode .login-card { padding:1.5rem; }
+  body.mobile-mode .login-grid { grid-template-columns:1fr 1fr; }
+  body.mobile-mode .setup-card { padding:1.5rem; }
+  body.mobile-mode table { font-size:0.75rem; }
+  body.mobile-mode th, body.mobile-mode td { padding:0.5rem 0.6rem; }
+  body.mobile-mode .tag { font-size:0.65rem; padding:0.1rem 0.35rem; }
+  body.mobile-mode .phase-indicator { flex-direction:column; }
+  body.mobile-mode .action-body { padding:0.9rem; }
+  body.mobile-mode .card { padding:1rem; }
+  body.mobile-mode .section-sub { font-size:0.75rem; margin-bottom:1rem; }
+  body.mobile-mode .save-bar { margin-top:1rem; }
+  body.mobile-mode .save-bar .btn { width:100%; text-align:center; padding:0.65rem; }
+  body.mobile-mode .save-bar { flex-direction:column; }
+  body.mobile-mode .input-field { font-size:1rem; padding:0.75rem; } /* bigger tap targets */
+  body.mobile-mode select { font-size:1rem; padding:0.65rem 2rem 0.65rem 0.75rem; }
+  body.mobile-mode .btn-primary { padding:0.7rem 1rem; font-size:0.82rem; }
+  body.mobile-mode .user-badge { display:none; } /* save space on mobile */
+  body.mobile-mode .sync-indicator { display:none; }
+  body.mobile-mode .device-btns-toggle { display:flex; }
+
+  /* toggle button always visible in header on mobile */
+  .device-switch-btn {
+    background:var(--bg3); border:1px solid var(--border); border-radius:4px;
+    padding:0.35rem 0.6rem; font-size:1rem; cursor:pointer; line-height:1;
+    transition:border-color 0.15s; flex-shrink:0;
+  }
+  .device-switch-btn:hover { border-color:var(--red); }
+
+  header {
+    background:var(--bg2); border-bottom:2px solid var(--red);
+    padding:0 2rem; position:sticky; top:0; z-index:100;
+    display:flex; align-items:center; justify-content:space-between; height:64px; gap:1rem;
+  }
+  .logo { font-family:'Bebas Neue',cursive; font-size:1.8rem; letter-spacing:3px; white-space:nowrap; }
+  .logo span { color:var(--red); }
+  .header-right { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
+  .user-badge {
+    display:flex; align-items:center; gap:0.5rem;
+    background:var(--bg3); border:1px solid var(--border);
+    border-radius:4px; padding:0.35rem 0.75rem; font-size:0.8rem;
+  }
+  .user-badge .dot { width:8px; height:8px; border-radius:50%; background:var(--green); }
+  .user-badge .dot.admin { background:var(--gold); }
+
+  .btn {
+    padding:0.45rem 1rem; border-radius:4px; border:1px solid var(--border);
+    background:var(--bg3); color:var(--text); font-family:'DM Sans',sans-serif;
+    font-size:0.78rem; font-weight:500; cursor:pointer; letter-spacing:0.5px;
+    transition:all 0.15s; text-transform:uppercase; white-space:nowrap;
+  }
+  .btn:hover { border-color:var(--red); color:var(--red); }
+  .btn-primary { background:var(--red); border-color:var(--red); color:#fff; }
+  .btn-primary:hover { background:var(--red-dark); border-color:var(--red-dark); color:#fff; }
+  .btn-danger { border-color:#555; }
+  .btn-danger:hover { border-color:#f55; color:#f55; }
+  .btn:disabled { opacity:0.4; cursor:not-allowed; pointer-events:none; }
+
+  main { max-width:1400px; margin:0 auto; padding:2rem; }
+
+  .section-title { font-family:'Bebas Neue',cursive; font-size:2.2rem; letter-spacing:3px; margin-bottom:0.25rem; }
+  .section-title span { color:var(--red); }
+  .section-sub { color:var(--muted); font-size:0.85rem; margin-bottom:2rem; letter-spacing:0.5px; text-transform:uppercase; }
+  .divider { height:2px; background:linear-gradient(90deg,var(--red),transparent); margin:0.5rem 0 2rem; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:1.5rem; }
+
+  .rules-box {
+    background:var(--bg3); border:1px solid var(--border); border-radius:6px;
+    padding:0.75rem 1rem; font-size:0.78rem; color:var(--muted); margin-bottom:1.5rem; line-height:1.9;
+  }
+  .rules-box strong { color:var(--accent); }
+
+  /* LOGIN */
+  .login-wrap {
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem;
+  }
+  .login-card {
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:2.5rem; width:100%; max-width:420px;
+  }
+  .login-title { font-family:'Bebas Neue',cursive; font-size:2rem; letter-spacing:3px; margin-bottom:0.25rem; }
+  .login-title span { color:var(--red); }
+  .login-sub { color:var(--muted); font-size:0.83rem; margin-bottom:2rem; }
+
+  .login-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:1.5rem; }
+  .login-player-btn {
+    background:var(--bg3); border:2px solid var(--border); border-radius:6px;
+    padding:0.65rem 0.5rem; text-align:center; cursor:pointer;
+    font-size:0.85rem; font-weight:500; transition:all 0.15s;
+    color:var(--text);
+  }
+  .login-player-btn:hover { border-color:var(--red); color:var(--red); }
+  .login-player-btn.selected { border-color:var(--red); background:rgba(225,6,0,0.1); color:var(--red); }
+
+  .input-field {
+    width:100%; background:var(--bg3); border:1px solid var(--border);
+    border-radius:4px; color:var(--text); padding:0.6rem 0.9rem;
+    font-family:'DM Sans',sans-serif; font-size:0.9rem; margin-bottom:0.75rem;
+  }
+  .input-field:focus { outline:none; border-color:var(--red); }
+
+  .input-label { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:0.3rem; display:block; }
+
+  /* PLAYER GRID */
+  .player-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:1.2rem; }
+  .player-card { background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden; transition:border-color 0.2s; }
+  .player-card:hover { border-color:var(--red); }
+  .player-card-header {
+    background:var(--bg3); padding:0.75rem 1.2rem;
+    display:flex; align-items:center; gap:0.75rem; border-bottom:1px solid var(--border);
+  }
+  .player-number {
+    width:28px; height:28px; background:var(--red); border-radius:4px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Bebas Neue',cursive; font-size:1rem; color:#fff; flex-shrink:0;
+  }
+  .player-name-label { font-weight:600; font-size:1rem; letter-spacing:0.5px; }
+  .player-card-body { padding:1rem 1.2rem; }
+  .input-group { margin-bottom:0.6rem; }
+
+  select {
+    width:100%; background:var(--bg3); border:1px solid var(--border);
+    border-radius:4px; color:var(--text); padding:0.5rem 0.75rem;
+    font-family:'DM Sans',sans-serif; font-size:0.85rem; cursor:pointer;
+    appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b6b80' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 0.75rem center; padding-right:2rem;
+    transition:border-color 0.15s;
+  }
+  select:focus { outline:none; border-color:var(--red); }
+  select option { background:var(--bg2); }
+  select:disabled { opacity:0.5; cursor:not-allowed; }
+
+  .section-label { font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; margin:0.75rem 0 0.4rem; }
+  .section-label.drivers { color:var(--accent); }
+  .section-label.teams { color:var(--green); }
+
+  .save-bar { display:flex; justify-content:flex-end; margin-top:2rem; gap:1rem; align-items:center; }
+
+  /* RANKING */
+  .ranking-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem; }
+  .rank-card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:1rem 1.2rem; display:flex; align-items:center; gap:1rem; }
+  .rank-badge { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue',cursive; font-size:1.1rem; flex-shrink:0; }
+  .rank-1{background:var(--gold);color:#000;} .rank-2{background:var(--silver);color:#000;} .rank-3{background:var(--bronze);color:#000;} .rank-n{background:var(--bg3);color:var(--muted);border:1px solid var(--border);}
+
+  /* DRAFT */
+  .draft-layout { display:grid; grid-template-columns:1fr 380px; gap:1.5rem; align-items:start; }
+  @media(max-width:900px){.draft-layout{grid-template-columns:1fr;}}
+  .phase-indicator { display:flex; gap:0.5rem; margin-bottom:1.5rem; }
+  .phase-step { flex:1; padding:0.6rem; border-radius:4px; border:1px solid var(--border); text-align:center; font-size:0.72rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:500; }
+  .phase-step.active{border-color:var(--red);background:rgba(225,6,0,0.1);color:var(--red);}
+  .phase-step.done{border-color:var(--green);background:rgba(0,212,170,0.05);color:var(--green);}
+  .pick-queue { display:flex; flex-direction:column; gap:0.5rem; }
+  .pick-item { display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; border-radius:6px; border:1px solid var(--border); background:var(--bg3); transition:all 0.2s; }
+  .pick-item.current{border-color:var(--red);background:rgba(225,6,0,0.08);}
+  .pick-item.done-pick{opacity:0.4;background:transparent;}
+  .pick-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;}
+  .pick-item.current .pick-dot{background:var(--red);}
+  .pick-item.done-pick .pick-dot{background:var(--green);}
+  .pick-player{font-weight:500;font-size:0.85rem;}
+  .pick-desc{font-size:0.72rem;color:var(--muted);}
+  .action-panel{background:var(--card);border:1px solid var(--red);border-radius:8px;overflow:hidden;}
+  .action-header{background:var(--red);padding:0.75rem 1.2rem;font-family:'Bebas Neue',cursive;letter-spacing:2px;font-size:1rem;}
+  .action-body{padding:1.2rem;}
+  .action-body .input-group{margin-bottom:0.8rem;}
+
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+  th{background:var(--bg3);color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-size:0.7rem;font-weight:500;padding:0.65rem 0.9rem;text-align:left;border-bottom:1px solid var(--border);}
+  td{padding:0.65rem 0.9rem;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,0.02);}
+
+  .tag{display:inline-block;padding:0.15rem 0.5rem;border-radius:3px;font-size:0.72rem;margin:1px;background:rgba(255,107,53,0.12);border:1px solid rgba(255,107,53,0.25);color:var(--accent);}
+  .tag-team{background:rgba(0,212,170,0.08);border-color:rgba(0,212,170,0.2);color:var(--green);}
+
+  .end-table-wrap{overflow-x:auto;margin-bottom:2rem;}
+  .pos-1{color:var(--gold);} .pos-2{color:var(--silver);} .pos-3{color:var(--bronze);}
+
+  .toast{position:fixed;bottom:2rem;right:2rem;background:var(--bg2);border:1px solid var(--green);color:var(--green);padding:0.75rem 1.5rem;border-radius:6px;font-size:0.85rem;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+  .toast.error{border-color:var(--red);color:var(--red);}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:2rem;max-width:420px;width:100%;}
+  .modal h3{font-family:'Bebas Neue',cursive;font-size:1.5rem;letter-spacing:2px;margin-bottom:0.75rem;}
+  .modal p{color:var(--muted);font-size:0.88rem;margin-bottom:1.5rem;}
+  .modal-btns{display:flex;gap:0.75rem;justify-content:flex-end;}
+
+  .alert{padding:0.75rem 1rem;border-radius:6px;font-size:0.83rem;margin-bottom:1rem;}
+  .alert-info{background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);color:var(--green);}
+  .alert-warn{background:rgba(255,107,53,0.08);border:1px solid rgba(255,107,53,0.2);color:var(--accent);}
+  .alert-error{background:rgba(225,6,0,0.08);border:1px solid rgba(225,6,0,0.3);color:#ff6060;}
+
+  .counter-badge{display:inline-block;background:var(--red);color:#fff;border-radius:3px;padding:0 0.4rem;font-size:0.7rem;font-weight:700;margin-left:0.4rem;vertical-align:middle;}
+  .hidden{display:none!important;}
+
+  .sync-indicator {
+    display:flex; align-items:center; gap:0.4rem;
+    font-size:0.72rem; color:var(--muted); letter-spacing:0.5px;
+  }
+  .sync-dot { width:6px; height:6px; border-radius:50%; background:var(--green); }
+  .sync-dot.syncing { background:var(--accent); animation:pulse 1s infinite; }
+  .sync-dot.error { background:#f55; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* SETUP SCREEN */
+  .setup-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem; }
+  .setup-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:2.5rem; width:100%; max-width:560px; }
+  .setup-card h2 { font-family:'Bebas Neue',cursive; font-size:1.8rem; letter-spacing:3px; margin-bottom:0.5rem; }
+  .setup-card h2 span { color:var(--red); }
+  .step { margin-bottom:2rem; }
+  .step-num { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; background:var(--red); border-radius:50%; font-size:0.75rem; font-weight:700; color:#fff; margin-right:0.5rem; flex-shrink:0; }
+  .step-title { font-weight:600; margin-bottom:0.5rem; display:flex; align-items:center; }
+  .step p { font-size:0.83rem; color:var(--muted); line-height:1.7; margin-bottom:0.5rem; }
+  .code-box { background:var(--bg3); border:1px solid var(--border); border-radius:4px; padding:0.6rem 0.9rem; font-family:monospace; font-size:0.8rem; color:var(--accent); margin:0.5rem 0; word-break:break-all; }
+  .pins-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-top:0.75rem; }
+  .pin-row { display:flex; align-items:center; gap:0.5rem; }
+  .pin-name { font-size:0.82rem; font-weight:500; min-width:80px; }
+  .pin-input { flex:1; background:var(--bg3); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:0.4rem 0.6rem; font-family:'DM Sans',sans-serif; font-size:0.82rem; }
+  .pin-input:focus { outline:none; border-color:var(--red); }
+</style>
+</head>
+<body>
+
+<!-- DEVICE SELECTOR -->
+<div id="deviceScreen" class="device-wrap">
+  <div class="device-card">
+    <div class="device-logo">F1 <span>Fantasy</span> Liga</div>
+    <div class="device-sub">Wie möchtest du die App nutzen?</div>
+    <div class="device-btns">
+      <div class="device-btn" onclick="chooseDevice('pc')">
+        <div class="device-icon">🖥️</div>
+        <div class="device-label">PC</div>
+        <div class="device-desc">Volle Ansicht, Desktop-Layout</div>
+      </div>
+      <div class="device-btn" onclick="chooseDevice('mobile')">
+        <div class="device-icon">📱</div>
+        <div class="device-label">Handy</div>
+        <div class="device-desc">Optimiert für Hochformat</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP SCREEN (shown when no Supabase keys configured) -->
+<div id="setupScreen" class="setup-wrap hidden">
+  <div class="setup-card">
+    <h2>F1 <span>Fantasy</span> Setup</h2>
+    <p style="color:var(--muted);font-size:0.83rem;margin-bottom:2rem">Einmalige Einrichtung — danach können alle Spieler die Website gemeinsam nutzen.</p>
+
+    <div class="step">
+      <div class="step-title"><span class="step-num">1</span> Supabase Account erstellen</div>
+      <p>Gehe auf <strong style="color:var(--text)">supabase.com</strong> → "Start your project" → kostenlosen Account erstellen.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-title"><span class="step-num">2</span> Neues Projekt erstellen</div>
+      <p>Klick auf "New project" → Name: <strong style="color:var(--text)">f1fantasy</strong> → Region: <strong style="color:var(--text)">EU West</strong> → Passwort dir merken → "Create new project".</p>
+    </div>
+
+    <div class="step">
+      <div class="step-title"><span class="step-num">3</span> Datenbank-Tabelle anlegen</div>
+      <p>Im Supabase Dashboard → links auf <strong style="color:var(--text)">"SQL Editor"</strong> → "New query" → folgenden Code einfügen und auf "Run" klicken:</p>
+      <div class="code-box">CREATE TABLE liga_state (
+  key TEXT PRIMARY KEY,
+  value JSONB,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE liga_state ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "allow all" ON liga_state
+  FOR ALL USING (true) WITH CHECK (true);</div>
+    </div>
+
+    <div class="step">
+      <div class="step-title"><span class="step-num">4</span> API Keys eintragen</div>
+      <p>Im Dashboard → links <strong style="color:var(--text)">"Project Settings"</strong> → <strong style="color:var(--text)">"API"</strong> → kopiere:</p>
+      <div class="input-group" style="margin-top:0.75rem">
+        <label class="input-label">Project URL</label>
+        <input class="input-field" id="setupUrl" placeholder="https://xxxx.supabase.co" type="text">
+      </div>
+      <div class="input-group">
+        <label class="input-label">anon / public Key</label>
+        <input class="input-field" id="setupKey" placeholder="eyJhbGci..." type="text">
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title"><span class="step-num">5</span> Admin-PIN & Spieler-PINs setzen</div>
+      <p>Setz einen Admin-PIN (nur für dich, um alles zu verwalten) und PINs für jeden Spieler.</p>
+      <div class="input-group" style="margin-top:0.5rem">
+        <label class="input-label">Admin PIN (4+ Zeichen)</label>
+        <input class="input-field" id="setupAdminPin" placeholder="z.B. admin123" type="password">
+      </div>
+      <div class="pins-grid" id="setupPinsGrid"></div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;padding:0.75rem;font-size:0.9rem;margin-top:0.5rem" onclick="saveSetup()">Setup abschließen &amp; starten</button>
+    <div id="setupErr" class="alert alert-error hidden" style="margin-top:1rem"></div>
+  </div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="login-wrap hidden">
+  <div class="login-card">
+    <div class="login-title">F1 <span>Fantasy</span> Liga</div>
+    <div class="login-sub">Wähle deinen Namen und gib deinen PIN ein</div>
+    <div class="login-grid" id="loginGrid"></div>
+    <div id="loginPinWrap" class="hidden">
+      <label class="input-label" id="loginPinLabel">PIN für —</label>
+      <input class="input-field" id="loginPin" type="password" placeholder="PIN eingeben" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="btn btn-primary" style="width:100%;padding:0.65rem;margin-top:0.25rem" onclick="doLogin()">Einloggen</button>
+    </div>
+    <div id="loginErr" class="alert alert-error hidden" style="margin-top:0.75rem"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Bestätigen</h3>
+    <p id="modalMsg"></p>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-primary" id="modalConfirmBtn">Bestätigen</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="hidden">
+  <header>
+    <div class="logo">F1 <span>Fantasy</span> Liga</div>
+    <div class="header-right">
+      <div class="sync-indicator"><div class="sync-dot" id="syncDot"></div><span id="syncLabel">Verbunden</span></div>
+      <div class="user-badge" id="userBadge"><div class="dot" id="userDot"></div><span id="userNameBadge">—</span></div>
+      <div id="adminBtns" class="hidden" style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button class="btn" onclick="goTeams()">Teams bearbeiten</button>
+        <button class="btn" onclick="exportBackup()">Export</button>
+        <button class="btn" onclick="document.getElementById('importFile').click()">Import</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(event)">
+        <button class="btn btn-danger" onclick="confirmReset()">Liga zurücksetzen</button>
+      </div>
+      <button class="btn" onclick="doLogout()">Abmelden</button>
+      <button class="device-switch-btn" id="deviceSwitchBtn" onclick="toggleDevice()" title="Ansicht wechseln">🖥️</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- VIEW: TEAMS -->
+    <div id="viewTeams" class="hidden">
+      <div class="section-title">Teams <span>bearbeiten</span></div>
+      <div class="divider"></div>
+      <div class="rules-box">
+        <strong>Regeln:</strong> &nbsp;
+        5 Fahrer + 2 Teams pro Spieler &nbsp;·&nbsp;
+        Max. <strong>2 Fahrer aus Top-Teams</strong> (⭐ Mercedes, Ferrari, McLaren, Red Bull) &nbsp;·&nbsp;
+        Max. <strong>1 Top-Team</strong> besitzen (⭐ inkl. Williams) &nbsp;·&nbsp;
+        <strong>Nicht beide Fahrer vom selben Team</strong> &nbsp;·&nbsp;
+        Jeder Fahrer/Team max. bei <strong>2 Spielern</strong>
+      </div>
+      <div class="player-grid" id="playerGrid"></div>
+      <div class="save-bar" id="teamsSaveBar">
+        <button class="btn btn-primary" onclick="saveTeams()">Teams speichern &amp; weiter</button>
+      </div>
+    </div>
+
+    <!-- VIEW: RANKING -->
+    <div id="viewRanking" class="hidden">
+      <div class="section-title">Race <span>Ranking</span></div>
+      <div class="divider"></div>
+      <p class="section-sub">Wer hat welchen Platz beim letzten Rennen erreicht?</p>
+      <div class="ranking-grid" id="rankingGrid"></div>
+      <div class="save-bar" id="rankingSaveBar">
+        <button class="btn" onclick="showView('viewTeams')">Zurück</button>
+        <button class="btn btn-primary" onclick="saveRanking()">Ranking speichern &amp; Draft starten</button>
+      </div>
+    </div>
+
+    <!-- VIEW: DRAFT -->
+    <div id="viewDraft" class="hidden">
+      <div class="section-title">Draft <span>Phase</span></div>
+      <div class="divider"></div>
+      <div class="phase-indicator">
+        <div class="phase-step" id="ph1">Phase 1 — Driver Swap</div>
+        <div class="phase-step" id="ph2">Phase 2 — Team Swap</div>
+        <div class="phase-step" id="ph3">Phase 3 — Open Draft</div>
+      </div>
+      <div class="draft-layout">
+        <div>
+          <div class="card" style="margin-bottom:1.2rem;">
+            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem">Draft Reihenfolge</div>
+            <div class="pick-queue" id="pickQueue"></div>
+          </div>
+          <div class="card">
+            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem">Draft Board</div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Spieler</th><th>Fahrer <span class="counter-badge">5</span></th><th>Teams <span class="counter-badge">2</span></th></tr></thead>
+                <tbody id="draftBoardBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="action-panel">
+            <div class="action-header" id="actionTitle">Dein Pick</div>
+            <div class="action-body" id="actionBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: END -->
+    <div id="viewEnd" class="hidden">
+      <div class="section-title">Draft <span>Abgeschlossen</span></div>
+      <div class="divider"></div>
+      <div class="end-table-wrap">
+        <table>
+          <thead><tr><th>Platz</th><th>Spieler</th><th>Fahrer</th><th>Teams</th></tr></thead>
+          <tbody id="endTableBody"></tbody>
+        </table>
+      </div>
+      <div style="text-align:center;" id="endAdminBtn"></div>
+    </div>
+
+    <!-- VIEW: READONLY (non-admin watching) -->
+    <div id="viewReadonly" class="hidden">
+      <div class="section-title">Liga <span>Übersicht</span></div>
+      <div class="divider"></div>
+      <p class="section-sub" id="readonlyStatus"></p>
+      <div class="card" style="margin-bottom:1.2rem;" id="readonlyBoard"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ============================================================
+// SUPABASE CONFIG — filled during setup
+// ============================================================
+const CONFIG_KEY = 'f1_fantasy_config';
+
+function getConfig() {
+  try { return JSON.parse(localStorage.getItem(CONFIG_KEY)) || null; } catch { return null; }
+}
+function saveConfig(cfg) { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); }
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+const PLAYERS = ['Mattis','Jan Luca','Tjark','Lewe','Leon','Lennis','Nick','Jorve'];
+
+const CONSTRUCTOR_TEAMS = {
+  'Mercedes':     ['George Russell','Kimi Antonelli'],
+  'Ferrari':      ['Charles Leclerc','Lewis Hamilton'],
+  'McLaren':      ['Oscar Piastri','Lando Norris'],
+  'Red Bull':     ['Max Verstappen','Isack Hadjar'],
+  'Williams':     ['Carlos Sainz','Alexander Albon'],
+  'Racing Bulls': ['Liam Lawson','Arvid Lindblad'],
+  'Haas':         ['Esteban Ocon','Oliver Bearman'],
+  'Alpine':       ['Pierre Gasly','Franco Colapinto'],
+  'Audi':         ['Nico Hülkenberg','Gabriel Bortoleto'],
+  'Cadillac':     ['Valtteri Bottas','Sergio Perez'],
+  'Aston Martin': ['Fernando Alonso','Lance Stroll'],
+};
+
+const TEAMS_LIST = Object.keys(CONSTRUCTOR_TEAMS);
+const DRIVERS_LIST = Object.values(CONSTRUCTOR_TEAMS).flat();
+const TOP_TEAMS = ['Mercedes','Ferrari','McLaren','Red Bull','Williams'];
+const TOP_DRIVER_TEAMS = ['Mercedes','Ferrari','McLaren','Red Bull'];
+
+const DRIVER_TO_TEAM = {};
+Object.entries(CONSTRUCTOR_TEAMS).forEach(([team,drivers]) =>
+  drivers.forEach(d => DRIVER_TO_TEAM[d] = team)
+);
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  playerTeams: PLAYERS.map(() => ({ drivers:['','','','',''], teams:['',''] })),
+  ranking: [],
+  draft: null,
+  appPhase: 'teams'
+};
+
+let currentUser = null; // { name, isAdmin, playerIdx }
+let supabaseUrl = '', supabaseKey = '';
+let realtimeChannel = null;
+
+// ============================================================
+// SUPABASE API (vanilla fetch, no library needed)
+// ============================================================
+async function dbGet(key) {
+  const r = await fetch(`${supabaseUrl}/rest/v1/liga_state?key=eq.${key}&select=value`, {
+    headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` }
+  });
+  if (!r.ok) throw new Error(`DB read error ${r.status}`);
+  const data = await r.json();
+  return data.length > 0 ? data[0].value : null;
+}
+
+async function dbSet(key, value) {
+  const r = await fetch(`${supabaseUrl}/rest/v1/liga_state`, {
+    method: 'POST',
+    headers: {
+      apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`,
+      'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
+  });
+  if (!r.ok) throw new Error(`DB write error ${r.status}`);
+}
+
+// ============================================================
+// SYNC
+// ============================================================
+function setSyncStatus(status) {
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  if (!dot) return;
+  if (status === 'ok') { dot.className='sync-dot'; label.textContent='Verbunden'; }
+  else if (status === 'syncing') { dot.className='sync-dot syncing'; label.textContent='Sync…'; }
+  else { dot.className='sync-dot error'; label.textContent='Offline'; }
+}
+
+async function loadStateFromDB() {
+  try {
+    setSyncStatus('syncing');
+    const val = await dbGet('state');
+    if (val) state = val;
+    setSyncStatus('ok');
+  } catch(e) {
+    setSyncStatus('error');
+    showToast('Verbindungsfehler beim Laden', true);
+  }
+}
+
+async function saveStateToDB() {
+  try {
+    setSyncStatus('syncing');
+    await dbSet('state', state);
+    setSyncStatus('ok');
+  } catch(e) {
+    setSyncStatus('error');
+    showToast('Speichern fehlgeschlagen!', true);
+  }
+}
+
+// Poll for changes every 5 seconds (simple realtime without websocket lib)
+let pollInterval = null;
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    try {
+      const val = await dbGet('state');
+      if (val && JSON.stringify(val) !== JSON.stringify(state)) {
+        state = val;
+        refreshCurrentView();
+      }
+    } catch {}
+  }, 5000);
+}
+
+function refreshCurrentView() {
+  if (!currentUser) return;
+  const views = ['viewTeams','viewRanking','viewDraft','viewEnd','viewReadonly'];
+  const visible = views.find(v => !document.getElementById(v).classList.contains('hidden'));
+  if (visible === 'viewTeams') renderTeams();
+  else if (visible === 'viewRanking') renderRanking();
+  else if (visible === 'viewDraft') renderDraft();
+  else if (visible === 'viewEnd') renderEndView();
+  else if (visible === 'viewReadonly') renderReadonly();
+}
+
+// ============================================================
+// SETUP SCREEN
+// ============================================================
+function initSetupPins() {
+  const grid = document.getElementById('setupPinsGrid');
+  grid.innerHTML = PLAYERS.map((p,i) => `
+    <div class="pin-row">
+      <span class="pin-name">${p}</span>
+      <input class="pin-input" id="pin_${i}" type="password" placeholder="PIN">
+    </div>`).join('');
+}
+
+function saveSetup() {
+  const url = document.getElementById('setupUrl').value.trim().replace(/\/$/,'');
+  const key = document.getElementById('setupKey').value.trim();
+  const adminPin = document.getElementById('setupAdminPin').value.trim();
+  const errEl = document.getElementById('setupErr');
+
+  if (!url || !key) { errEl.textContent='Bitte URL und Key eintragen.'; errEl.classList.remove('hidden'); return; }
+  if (!adminPin || adminPin.length < 3) { errEl.textContent='Admin-PIN muss mindestens 3 Zeichen haben.'; errEl.classList.remove('hidden'); return; }
+
+  const pins = {};
+  for (let i=0; i<PLAYERS.length; i++) {
+    const p = document.getElementById(`pin_${i}`).value.trim();
+    if (!p) { errEl.textContent=`Bitte PIN für ${PLAYERS[i]} setzen.`; errEl.classList.remove('hidden'); return; }
+    pins[PLAYERS[i]] = p;
+  }
+
+  const cfg = { url, key, adminPin, pins };
+  saveConfig(cfg);
+  errEl.classList.add('hidden');
+  startApp(cfg);
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+function showLogin() {
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+
+  const grid = document.getElementById('loginGrid');
+  const allNames = ['Admin', ...PLAYERS];
+  grid.innerHTML = allNames.map(name => `
+    <div class="login-player-btn" onclick="selectLoginPlayer('${name}')">${name}</div>`
+  ).join('');
+
+  document.getElementById('loginPinWrap').classList.add('hidden');
+  document.getElementById('loginErr').classList.add('hidden');
+  document.getElementById('loginPin').value = '';
+}
+
+let selectedLoginPlayer = null;
+function selectLoginPlayer(name) {
+  selectedLoginPlayer = name;
+  document.querySelectorAll('.login-player-btn').forEach(b => b.classList.remove('selected'));
+  event.target.classList.add('selected');
+  document.getElementById('loginPinLabel').textContent = `PIN für ${name}`;
+  document.getElementById('loginPinWrap').classList.remove('hidden');
+  document.getElementById('loginErr').classList.add('hidden');
+  document.getElementById('loginPin').focus();
+}
+
+function doLogin() {
+  const cfg = getConfig();
+  const pin = document.getElementById('loginPin').value.trim();
+  const errEl = document.getElementById('loginErr');
+  if (!selectedLoginPlayer) { errEl.textContent='Bitte einen Namen auswählen.'; errEl.classList.remove('hidden'); return; }
+  if (!pin) { errEl.textContent='Bitte PIN eingeben.'; errEl.classList.remove('hidden'); return; }
+
+  if (selectedLoginPlayer === 'Admin') {
+    if (pin !== cfg.adminPin) { errEl.textContent='Falscher PIN.'; errEl.classList.remove('hidden'); return; }
+    currentUser = { name:'Admin', isAdmin:true, playerIdx:-1 };
+  } else {
+    if (pin !== cfg.pins[selectedLoginPlayer]) { errEl.textContent='Falscher PIN.'; errEl.classList.remove('hidden'); return; }
+    currentUser = { name:selectedLoginPlayer, isAdmin:false, playerIdx:PLAYERS.indexOf(selectedLoginPlayer) };
+  }
+
+  errEl.classList.add('hidden');
+  document.getElementById('loginScreen').classList.add('hidden');
+  enterApp();
+}
+
+function doLogout() {
+  currentUser = null;
+  if (pollInterval) clearInterval(pollInterval);
+  showLogin();
+}
+
+// ============================================================
+// APP ENTRY
+// ============================================================
+async function enterApp() {
+  document.getElementById('app').classList.remove('hidden');
+
+  // Update user badge
+  document.getElementById('userNameBadge').textContent = currentUser.name;
+  document.getElementById('userDot').className = currentUser.isAdmin ? 'dot admin' : 'dot';
+
+  // Show/hide admin controls
+  if (currentUser.isAdmin) {
+    document.getElementById('adminBtns').classList.remove('hidden');
+    document.getElementById('adminBtns').style.display = 'flex';
+  } else {
+    document.getElementById('adminBtns').classList.add('hidden');
+  }
+
+  await loadStateFromDB();
+  startPolling();
+  navigateToCurrentPhase();
+}
+
+function navigateToCurrentPhase() {
+  if (currentUser.isAdmin) {
+    switch(state.appPhase) {
+      case 'teams':   renderTeams();   showView('viewTeams');   break;
+      case 'ranking': renderRanking(); showView('viewRanking'); break;
+      case 'draft':   renderDraft();   showView('viewDraft');   break;
+      case 'end':     renderEndView(); showView('viewEnd');     break;
+      default:        renderTeams();   showView('viewTeams');
+    }
+  } else {
+    // Non-admin: show draft if active (they can pick), else readonly overview
+    if (state.appPhase === 'draft') {
+      renderDraft(); showView('viewDraft');
+    } else {
+      renderReadonly(); showView('viewReadonly');
+    }
+  }
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function showView(id) {
+  ['viewTeams','viewRanking','viewDraft','viewEnd','viewReadonly'].forEach(v =>
+    document.getElementById(v).classList.add('hidden')
+  );
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError?' error':'');
+  setTimeout(() => t.className='toast', 3200);
+}
+
+function openModal(title, msg, onConfirm) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalMsg').textContent = msg;
+  document.getElementById('modalConfirmBtn').onclick = () => { closeModal(); onConfirm(); };
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
+
+function confirmReset() {
+  if (!currentUser?.isAdmin) return;
+  openModal('Liga zurücksetzen','Alle Daten werden gelöscht. Wirklich?', async () => {
+    state = { playerTeams:PLAYERS.map(()=>({drivers:['','','','',''],teams:['','']})), ranking:[], draft:null, appPhase:'teams' };
+    await saveStateToDB(); renderTeams(); showView('viewTeams');
+    showToast('Liga zurückgesetzt.');
+  });
+}
+
+function goTeams() { if (!currentUser?.isAdmin) return; renderTeams(); showView('viewTeams'); }
+
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='f1_fantasy_backup.json'; a.click();
+  showToast('Backup exportiert.');
+}
+
+function importBackup(e) {
+  if (!currentUser?.isAdmin) return;
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try { state = JSON.parse(ev.target.result); await saveStateToDB(); navigateToCurrentPhase(); showToast('Backup importiert.'); }
+    catch { showToast('Ungültige Datei.',true); }
+  };
+  reader.readAsText(file); e.target.value='';
+}
+
+// ============================================================
+// READONLY VIEW (for non-admin players outside draft)
+// ============================================================
+function renderReadonly() {
+  const el = document.getElementById('readonlyBoard');
+  const status = document.getElementById('readonlyStatus');
+
+  const phaseLabels = { teams:'Teams werden eingetragen', ranking:'Rennergebnis wird eingetragen', draft:'Draft läuft', end:'Draft abgeschlossen' };
+  status.textContent = `Status: ${phaseLabels[state.appPhase] || '—'}`;
+
+  let html = `<div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:1rem">Aktuelle Teams</div>
+    <div class="table-wrap"><table>
+    <thead><tr><th>Spieler</th><th>Fahrer</th><th>Teams</th></tr></thead><tbody>`;
+  PLAYERS.forEach((p,pi) => {
+    const pt = state.playerTeams[pi];
+    const isMe = pi === currentUser.playerIdx;
+    html += `<tr ${isMe?'style="background:rgba(225,6,0,0.05)"':''}>
+      <td><strong>${p}</strong>${isMe?' <span style="color:var(--red);font-size:0.7rem">(du)</span>':''}</td>
+      <td>${pt.drivers.filter(Boolean).map(d=>`<span class="tag">${d}</span>`).join('')||'—'}</td>
+      <td>${pt.teams.filter(Boolean).map(t=>`<span class="tag tag-team">${t}</span>`).join('')||'—'}</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  el.innerHTML = html;
+}
+
+// ============================================================
+// RULES
+// ============================================================
+function getOwnership(excludePlayerIdx=-1) {
+  const dc={}, tc={};
+  DRIVERS_LIST.forEach(d=>dc[d]=0); TEAMS_LIST.forEach(t=>tc[t]=0);
+  state.playerTeams.forEach((pt,idx) => {
+    if (idx===excludePlayerIdx) return;
+    pt.drivers.forEach(d=>{if(d)dc[d]++;});
+    pt.teams.forEach(t=>{if(t)tc[t]++;});
+  });
+  return {dc,tc};
+}
+
+function checkDriversValid(driverList) {
+  const active = driverList.filter(Boolean);
+  const teamsSeen = {};
+  for (const d of active) {
+    const ct = DRIVER_TO_TEAM[d];
+    if (teamsSeen[ct]) return `Zwei Fahrer vom Team ${ct}`;
+    teamsSeen[ct] = d;
+  }
+  const topCount = active.filter(d=>TOP_DRIVER_TEAMS.includes(DRIVER_TO_TEAM[d])).length;
+  if (topCount>2) return `Mehr als 2 Top-Fahrer`;
+  return null;
+}
+
+function checkTeamsValid(teamList) {
+  const active = teamList.filter(Boolean);
+  const topCount = active.filter(t=>TOP_TEAMS.includes(t)).length;
+  if (topCount>1) return `Mehr als 1 Top-Team`;
+  return null;
+}
+
+// ============================================================
+// TEAMS VIEW (admin only)
+// ============================================================
+function renderTeams() {
+  const grid = document.getElementById('playerGrid');
+  grid.innerHTML = '';
+  const isAdmin = currentUser?.isAdmin;
+
+  PLAYERS.forEach((player,pi) => {
+    const pt = state.playerTeams[pi];
+    const {dc,tc} = getOwnership(pi);
+    const card = document.createElement('div');
+    card.className = 'player-card';
+    let html = `<div class="player-card-header">
+      <div class="player-number">${pi+1}</div>
+      <div class="player-name-label">${player}</div>
+    </div><div class="player-card-body">
+      <div class="section-label drivers">▸ Fahrer</div>`;
+
+    for (let di=0;di<5;di++) {
+      const val = pt.drivers[di]||'';
+      html += `<div class="input-group"><label class="input-label">Fahrer ${di+1}</label>
+        <select ${!isAdmin?'disabled':''} onchange="updateDriver(${pi},${di},this.value)">
+          <option value="">— Fahrer auswählen —</option>`;
+      DRIVERS_LIST.forEach(d => {
+        const globalFull=(dc[d]||0)>=2&&d!==val;
+        const testD=[...pt.drivers]; testD[di]=d;
+        const ruleErr=d!==val?checkDriversValid(testD):null;
+        const disabled=globalFull||!!ruleErr;
+        const suffix=globalFull?' (gesperrt)':ruleErr?' ✗':(dc[d]||0)===1&&d!==val?' (1/2)':'';
+        const topMark=TOP_DRIVER_TEAMS.includes(DRIVER_TO_TEAM[d])?'⭐ ':'';
+        html+=`<option value="${d}" ${val===d?'selected':''} ${disabled?'disabled style="color:#555"':''} title="${ruleErr||''}">${topMark}${d}${suffix}</option>`;
+      });
+      html+=`</select></div>`;
+    }
+
+    html+=`<div class="section-label teams">▸ Teams</div>`;
+    for (let ti=0;ti<2;ti++) {
+      const val=pt.teams[ti]||'';
+      html+=`<div class="input-group"><label class="input-label">Team ${ti+1}</label>
+        <select ${!isAdmin?'disabled':''} onchange="updateTeam(${pi},${ti},this.value)">
+          <option value="">— Team auswählen —</option>`;
+      TEAMS_LIST.forEach(t => {
+        const globalFull=(tc[t]||0)>=2&&t!==val;
+        const testT=[...pt.teams]; testT[ti]=t;
+        const ruleErr=t!==val?checkTeamsValid(testT):null;
+        const disabled=globalFull||!!ruleErr;
+        const suffix=globalFull?' (gesperrt)':ruleErr?' ✗':(tc[t]||0)===1&&t!==val?' (1/2)':'';
+        const topMark=TOP_TEAMS.includes(t)?'⭐ ':'';
+        html+=`<option value="${t}" ${val===t?'selected':''} ${disabled?'disabled style="color:#555"':''} title="${ruleErr||''}">${topMark}${t}${suffix}</option>`;
+      });
+      html+=`</select></div>`;
+    }
+    html+=`</div>`;
+    card.innerHTML=html;
+    grid.appendChild(card);
+  });
+
+  if (!isAdmin) document.getElementById('teamsSaveBar').classList.add('hidden');
+}
+
+async function updateDriver(pi,di,val) {
+  if (!currentUser?.isAdmin) return;
+  if (val) { const t=[...state.playerTeams[pi].drivers]; t[di]=val; const e=checkDriversValid(t); if(e){showToast(`Nicht erlaubt: ${e}`,true);renderTeams();return;} }
+  state.playerTeams[pi].drivers[di]=val;
+  await saveStateToDB(); renderTeams();
+}
+
+async function updateTeam(pi,ti,val) {
+  if (!currentUser?.isAdmin) return;
+  if (val) { const t=[...state.playerTeams[pi].teams]; t[ti]=val; const e=checkTeamsValid(t); if(e){showToast(`Nicht erlaubt: ${e}`,true);renderTeams();return;} }
+  state.playerTeams[pi].teams[ti]=val;
+  await saveStateToDB(); renderTeams();
+}
+
+async function saveTeams() {
+  if (!currentUser?.isAdmin) return;
+  for (let pi=0;pi<PLAYERS.length;pi++) {
+    const pt=state.playerTeams[pi];
+    const drivers=pt.drivers.filter(Boolean), teams=pt.teams.filter(Boolean);
+    if (drivers.length<5){showToast(`${PLAYERS[pi]}: nicht alle 5 Fahrer gewählt.`,true);return;}
+    if (new Set(drivers).size<5){showToast(`${PLAYERS[pi]}: doppelte Fahrer.`,true);return;}
+    if (teams.length<2){showToast(`${PLAYERS[pi]}: nicht alle 2 Teams gewählt.`,true);return;}
+    if (new Set(teams).size<2){showToast(`${PLAYERS[pi]}: doppelte Teams.`,true);return;}
+    const de=checkDriversValid(drivers); if(de){showToast(`${PLAYERS[pi]}: ${de}`,true);return;}
+    const te=checkTeamsValid(teams); if(te){showToast(`${PLAYERS[pi]}: ${te}`,true);return;}
+  }
+  state.appPhase='ranking';
+  await saveStateToDB(); renderRanking(); showView('viewRanking');
+  showToast('Teams gespeichert!');
+}
+
+// ============================================================
+// RANKING (admin only)
+// ============================================================
+function renderRanking() {
+  const grid=document.getElementById('rankingGrid');
+  grid.innerHTML='';
+  const isAdmin=currentUser?.isAdmin;
+  for (let rank=0;rank<8;rank++) {
+    const curVal=state.ranking[rank]!==undefined?state.ranking[rank]:'';
+    const cls=rank===0?'rank-1':rank===1?'rank-2':rank===2?'rank-3':'rank-n';
+    const card=document.createElement('div');
+    card.className='rank-card';
+    card.innerHTML=`<div class="rank-badge ${cls}">${rank+1}</div>
+      <div style="flex:1"><label class="input-label">Platz ${rank+1}</label>
+        <select ${!isAdmin?'disabled':''} onchange="updateRank(${rank},this.value)">
+          <option value="">— Spieler auswählen —</option>
+          ${PLAYERS.map((p,pi)=>{
+            const used=state.ranking.includes(pi)&&state.ranking[rank]!==pi;
+            return `<option value="${pi}" ${(curVal===pi||curVal===String(pi))?'selected':''} ${used?'disabled':''}>${p}</option>`;
+          }).join('')}
+        </select>
+      </div>`;
+    grid.appendChild(card);
+  }
+  if (!isAdmin) document.getElementById('rankingSaveBar').classList.add('hidden');
+}
+
+function updateRank(rank,val) {
+  if (!currentUser?.isAdmin) return;
+  state.ranking[rank]=val===''?undefined:parseInt(val);
+  renderRanking();
+}
+
+async function saveRanking() {
+  if (!currentUser?.isAdmin) return;
+  const filled=state.ranking.filter(r=>r!==undefined&&r!==null);
+  if (filled.length<8||new Set(filled).size<8){showToast('Bitte alle 8 Plätze belegen.',true);return;}
+  await saveStateToDB();
+  initDraft();
+}
+
+// ============================================================
+// DRAFT ENGINE
+// ============================================================
+function initDraft() {
+  const r=state.ranking;
+  const swapPickers=[r[7],r[6],r[5],r[4]];
+  const swapTargets=[r[0],r[1],r[2],r[3]];
+  const picks=[];
+  swapPickers.forEach((p,qi)=>picks.push({phase:1,pickerIdx:p,rank:qi+5,done:false,action:null}));
+  swapPickers.forEach((p,qi)=>picks.push({phase:2,pickerIdx:p,rank:qi+5,done:false,action:null}));
+  for (let i=7;i>=0;i--) {
+    picks.push({phase:3,pickerIdx:r[i],rank:8-i,pickNum:1,done:false,action:null});
+    picks.push({phase:3,pickerIdx:r[i],rank:8-i,pickNum:2,done:false,action:null});
+  }
+  state.draft={picks,currentPickIdx:0,phase1Locked:[],phase2Locked:[],swapTargets,complete:false};
+  state.appPhase='draft';
+  saveStateToDB();
+  renderDraft(); showView('viewDraft');
+}
+
+function getCurrentPick() { return state.draft?.picks[state.draft.currentPickIdx]||null; }
+
+function isMyTurn() {
+  const pick=getCurrentPick();
+  if (!pick) return false;
+  if (currentUser.isAdmin) return true;
+  return pick.pickerIdx === currentUser.playerIdx;
+}
+
+function renderDraft() {
+  const d=state.draft;
+  const pick=getCurrentPick();
+  const phase=pick?pick.phase:4;
+
+  // Phase indicator
+  for (let p=1;p<=3;p++) {
+    const el=document.getElementById(`ph${p}`);
+    el.className='phase-step'+(p===phase?' active':p<phase?' done':'');
+  }
+
+  // Queue
+  const queue=document.getElementById('pickQueue');
+  queue.innerHTML='';
+  d.picks.forEach((pk,idx) => {
+    const isCurrent=idx===d.currentPickIdx;
+    const div=document.createElement('div');
+    div.className='pick-item'+(isCurrent?' current':pk.done?' done-pick':'');
+    const lbl=pk.phase===1?'Driver Swap':pk.phase===2?'Team Swap':`Open Pick #${pk.pickNum}`;
+    const isMe=pk.pickerIdx===currentUser.playerIdx;
+    div.innerHTML=`<div class="pick-dot"></div><div><div class="pick-player">${PLAYERS[pk.pickerIdx]}${isMe?' <span style="color:var(--red);font-size:0.68rem">(du)</span>':''}</div><div class="pick-desc">Phase ${pk.phase} — ${lbl}</div></div>`;
+    queue.appendChild(div);
+  });
+
+  // Board
+  const tbody=document.getElementById('draftBoardBody');
+  tbody.innerHTML='';
+  PLAYERS.forEach((player,pi) => {
+    const pt=state.playerTeams[pi];
+    const isMe=pi===currentUser.playerIdx;
+    const tr=document.createElement('tr');
+    if (isMe) tr.style.background='rgba(225,6,0,0.04)';
+    tr.innerHTML=`<td><strong>${player}</strong>${isMe?' <span style="color:var(--red);font-size:0.68rem">(du)</span>':''}</td>
+      <td>${pt.drivers.filter(Boolean).map(d=>`<span class="tag">${d}</span>`).join('')||'—'}</td>
+      <td>${pt.teams.filter(Boolean).map(t=>`<span class="tag tag-team">${t}</span>`).join('')||'—'}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Action panel
+  if (!pick) { completeDraft(); return; }
+  document.getElementById('actionTitle').textContent=`${PLAYERS[pick.pickerIdx]} — Phase ${pick.phase}`;
+  const body=document.getElementById('actionBody');
+
+  if (!isMyTurn()) {
+    body.innerHTML=`<div class="alert alert-info" style="text-align:center">
+      <strong>${PLAYERS[pick.pickerIdx]}</strong> ist am Zug…<br>
+      <span style="font-size:0.75rem;color:var(--muted)">Seite aktualisiert sich automatisch</span>
+    </div>`;
+    return;
+  }
+
+  if (pick.phase===1) renderSwapPanel(body,pick,'driver');
+  else if (pick.phase===2) renderSwapPanel(body,pick,'team');
+  else renderOpenDraftPanel(body,pick);
+}
+
+function renderSwapPanel(body,pick,type) {
+  const d=state.draft;
+  const locked=type==='driver'?d.phase1Locked:d.phase2Locked;
+  const avail=d.swapTargets.filter(ti=>!locked.includes(ti));
+  const typeLabel=type==='driver'?'Fahrer':'Team';
+
+  if (avail.length===0) {
+    body.innerHTML=`<div style="text-align:center;padding:1.5rem;color:var(--green);font-family:'Bebas Neue',cursive;font-size:1.2rem;letter-spacing:2px">Alle Top-4 gesperrt</div>
+      <button class="btn btn-primary" style="width:100%" onclick="skipPick()">Überspringen</button>`;
+    return;
+  }
+
+  body.innerHTML=`
+    <div class="alert alert-info">${PLAYERS[pick.pickerIdx]} kann einen ${typeLabel} tauschen.</div>
+    <div class="input-group">
+      <label class="input-label">Tauschpartner (Top 4)</label>
+      <select id="swapTarget" onchange="updateSwapSelects('${type}')">
+        <option value="">— wählen —</option>
+        ${avail.map(ti=>`<option value="${ti}">${PLAYERS[ti]}</option>`).join('')}
+      </select>
+    </div>
+    <div class="input-group hidden" id="swapGetWrap"><label class="input-label">Bekomme ${typeLabel}</label><select id="swapGet"></select></div>
+    <div class="input-group hidden" id="swapGiveWrap"><label class="input-label">Gebe ${typeLabel} ab</label><select id="swapGive"></select></div>
+    <div id="swapErr" class="alert alert-error hidden"></div>
+    <div id="swapBtnWrap" class="hidden" style="margin-top:0.5rem">
+      <button class="btn btn-primary" style="width:100%" onclick="executeSwap('${type}')">Tausch bestätigen</button>
+    </div>
+    <button class="btn" style="width:100%;margin-top:0.5rem" onclick="skipPick()">Tausch überspringen</button>`;
+}
+
+function updateSwapSelects(type) {
+  const pick=getCurrentPick();
+  const targetIdx=parseInt(document.getElementById('swapTarget').value);
+  if (isNaN(targetIdx)){['swapGetWrap','swapGiveWrap','swapBtnWrap'].forEach(id=>document.getElementById(id).classList.add('hidden'));return;}
+  const targetItems=type==='driver'?state.playerTeams[targetIdx].drivers.filter(Boolean):state.playerTeams[targetIdx].teams.filter(Boolean);
+  const pickerItems=type==='driver'?state.playerTeams[pick.pickerIdx].drivers.filter(Boolean):state.playerTeams[pick.pickerIdx].teams.filter(Boolean);
+  ['swapGetWrap','swapGiveWrap','swapBtnWrap'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+  document.getElementById('swapGet').innerHTML=targetItems.map(i=>`<option value="${i}">${i}</option>`).join('');
+  document.getElementById('swapGive').innerHTML=pickerItems.map(i=>`<option value="${i}">${i}</option>`).join('');
+}
+
+async function executeSwap(type) {
+  const d=state.draft, pick=getCurrentPick();
+  if (!isMyTurn()) return;
+  const targetIdx=parseInt(document.getElementById('swapTarget').value);
+  if (isNaN(targetIdx)){showToast('Tauschpartner wählen.',true);return;}
+  const getVal=document.getElementById('swapGet').value;
+  const giveVal=document.getElementById('swapGive').value;
+  if (!getVal||!giveVal){showToast('Bitte beide Objekte wählen.',true);return;}
+  const pickerPT=state.playerTeams[pick.pickerIdx];
+  const targetPT=state.playerTeams[targetIdx];
+
+  if (type==='driver') {
+    const newPD=[...pickerPT.drivers]; newPD[newPD.indexOf(giveVal)]=getVal;
+    const err=checkDriversValid(newPD);
+    if (err){document.getElementById('swapErr').textContent=`Regelverstoß: ${err}`;document.getElementById('swapErr').classList.remove('hidden');return;}
+    const gi=targetPT.drivers.indexOf(getVal);
+    pickerPT.drivers[pickerPT.drivers.indexOf(giveVal)]=getVal;
+    targetPT.drivers[gi]=giveVal;
+    d.phase1Locked.push(targetIdx);
+  } else {
+    const newPT=[...pickerPT.teams]; newPT[newPT.indexOf(giveVal)]=getVal;
+    const err=checkTeamsValid(newPT);
+    if (err){document.getElementById('swapErr').textContent=`Regelverstoß: ${err}`;document.getElementById('swapErr').classList.remove('hidden');return;}
+    const gi=targetPT.teams.indexOf(getVal);
+    pickerPT.teams[pickerPT.teams.indexOf(giveVal)]=getVal;
+    targetPT.teams[gi]=giveVal;
+    d.phase2Locked.push(targetIdx);
+  }
+  pick.done=true; pick.action={type:'swap',targetIdx,got:getVal,gave:giveVal};
+  await advancePick();
+}
+
+function renderOpenDraftPanel(body,pick) {
+  const pickerIdx=pick.pickerIdx;
+  const {dc,tc}=getOwnership();
+  const pt=state.playerTeams[pickerIdx];
+  const freeDrivers=DRIVERS_LIST.filter(d=>(dc[d]||0)<2);
+  const freeTeams=TEAMS_LIST.filter(t=>(tc[t]||0)<2);
+  window._openData={freeDrivers,freeTeams,pickerIdx};
+
+  body.innerHTML=`
+    <div class="alert alert-warn">${PLAYERS[pickerIdx]} — Pick #${pick.pickNum} von 2</div>
+    <div class="input-group">
+      <label class="input-label">Nehme (Typ)</label>
+      <select id="openType" onchange="updateOpenSelects()">
+        <option value="">— wählen —</option>
+        <option value="driver">Fahrer</option>
+        <option value="team">Team</option>
+      </select>
+    </div>
+    <div class="input-group hidden" id="openPickWrap"><label class="input-label">Wähle</label><select id="openPick"></select></div>
+    <div class="input-group hidden" id="openDropWrap"><label class="input-label">Gebe ab</label><select id="openDrop"></select></div>
+    <div id="openErr" class="alert alert-error hidden"></div>
+    <div id="openBtnWrap" class="hidden" style="margin-top:0.5rem">
+      <button class="btn btn-primary" style="width:100%" onclick="executeOpenPick()">Pick bestätigen</button>
+    </div>
+    <button class="btn" style="width:100%;margin-top:0.5rem" onclick="skipPick()">Pick überspringen</button>`;
+}
+
+function updateOpenSelects() {
+  const type=document.getElementById('openType').value;
+  const {freeDrivers,freeTeams,pickerIdx}=window._openData;
+  const pt=state.playerTeams[pickerIdx];
+  if (!type){['openPickWrap','openDropWrap','openBtnWrap'].forEach(id=>document.getElementById(id).classList.add('hidden'));return;}
+  ['openPickWrap','openDropWrap','openBtnWrap'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+  if (type==='driver') {
+    document.getElementById('openPick').innerHTML=freeDrivers.map(d=>{
+      const topMark=TOP_DRIVER_TEAMS.includes(DRIVER_TO_TEAM[d])?'⭐ ':'';
+      return `<option value="${d}">${topMark}${d}</option>`;
+    }).join('');
+    document.getElementById('openDrop').innerHTML=pt.drivers.filter(Boolean).map(d=>`<option value="${d}">${d}</option>`).join('');
+  } else {
+    document.getElementById('openPick').innerHTML=freeTeams.map(t=>{
+      const topMark=TOP_TEAMS.includes(t)?'⭐ ':'';
+      return `<option value="${t}">${topMark}${t}</option>`;
+    }).join('');
+    document.getElementById('openDrop').innerHTML=pt.teams.filter(Boolean).map(t=>`<option value="${t}">${t}</option>`).join('');
+  }
+  document.getElementById('openErr').classList.add('hidden');
+}
+
+async function executeOpenPick() {
+  const pick=getCurrentPick();
+  if (!isMyTurn()) return;
+  const type=document.getElementById('openType').value;
+  if (!type){showToast('Typ wählen.',true);return;}
+  const pickVal=document.getElementById('openPick').value;
+  const dropVal=document.getElementById('openDrop').value;
+  if (!pickVal||!dropVal){showToast('Bitte alle Felder ausfüllen.',true);return;}
+  const pt=state.playerTeams[pick.pickerIdx];
+  const errEl=document.getElementById('openErr');
+  if (type==='driver') {
+    const newD=[...pt.drivers]; newD[newD.indexOf(dropVal)]=pickVal;
+    const err=checkDriversValid(newD);
+    if (err){errEl.textContent=`Regelverstoß: ${err}`;errEl.classList.remove('hidden');return;}
+    pt.drivers[pt.drivers.indexOf(dropVal)]=pickVal;
+  } else {
+    const newT=[...pt.teams]; newT[newT.indexOf(dropVal)]=pickVal;
+    const err=checkTeamsValid(newT);
+    if (err){errEl.textContent=`Regelverstoß: ${err}`;errEl.classList.remove('hidden');return;}
+    pt.teams[pt.teams.indexOf(dropVal)]=pickVal;
+  }
+  pick.done=true; pick.action={type:'open',pickType:type,picked:pickVal,dropped:dropVal};
+  await advancePick();
+}
+
+async function skipPick() {
+  if (!isMyTurn()) return;
+  const pick=getCurrentPick(); if (!pick) return;
+  pick.done=true; pick.action={type:'skip'};
+  await advancePick();
+}
+
+async function advancePick() {
+  const d=state.draft;
+  d.currentPickIdx++;
+  const scrollY=window.scrollY;
+  await saveStateToDB();
+  if (d.currentPickIdx>=d.picks.length){completeDraft();return;}
+  renderDraft();
+  requestAnimationFrame(()=>window.scrollTo({top:scrollY}));
+}
+
+// ============================================================
+// END VIEW
+// ============================================================
+async function completeDraft() {
+  state.draft.complete=true; state.appPhase='end';
+  await saveStateToDB(); renderEndView(); showView('viewEnd');
+}
+
+function renderEndView() {
+  const tbody=document.getElementById('endTableBody');
+  tbody.innerHTML='';
+  state.ranking.forEach((playerIdx,rankIdx) => {
+    const rank=rankIdx+1;
+    const pt=state.playerTeams[playerIdx];
+    const cls=rank===1?'pos-1':rank===2?'pos-2':rank===3?'pos-3':'';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="font-family:'Bebas Neue',cursive;font-size:1.2rem" class="${cls}">${rank}</td>
+      <td><strong>${PLAYERS[playerIdx]}</strong></td>
+      <td>${pt.drivers.filter(Boolean).map(d=>`<span class="tag">${d}</span>`).join('')}</td>
+      <td>${pt.teams.filter(Boolean).map(t=>`<span class="tag tag-team">${t}</span>`).join('')}</td>`;
+    tbody.appendChild(tr);
+  });
+  const btn=document.getElementById('endAdminBtn');
+  if (currentUser?.isAdmin) {
+    btn.innerHTML=`<button class="btn btn-primary" style="padding:0.75rem 2rem;font-size:0.95rem" onclick="nextDraft()">Nächsten Draft starten</button>`;
+  } else {
+    btn.innerHTML=`<p style="color:var(--muted);font-size:0.85rem">Der Admin startet den nächsten Draft.</p>`;
+  }
+}
+
+async function nextDraft() {
+  if (!currentUser?.isAdmin) return;
+  state.ranking=[]; state.draft=null; state.appPhase='ranking';
+  await saveStateToDB(); renderRanking(); showView('viewRanking');
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+async function startApp(cfg) {
+  supabaseUrl=cfg.url; supabaseKey=cfg.key;
+  document.getElementById('setupScreen').classList.add('hidden');
+  showLogin();
+}
+
+async function boot() {
+  const cfg=getConfig();
+  if (!cfg || !cfg.url || !cfg.key) {
+    // Show setup
+    document.getElementById('setupScreen').classList.remove('hidden');
+    initSetupPins();
+  } else {
+    supabaseUrl=cfg.url; supabaseKey=cfg.key;
+    showLogin();
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
