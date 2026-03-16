@@ -228,10 +228,8 @@ tr:hover td{background:rgba(255,255,255,0.02);}
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     SETUP SCREEN
-══════════════════════════════════════════ -->
-<div id="setupScreen" class="fullscreen hidden">
+<!-- SETUP SCREEN — nicht mehr benötigt, Config ist fest eingebaut -->
+<div id="setupScreen" class="fullscreen hidden" style="display:none!important">
   <div class="setup-card">
     <h2 style="font-family:'Bebas Neue',cursive;font-size:1.8rem;letter-spacing:3px;margin-bottom:0.5rem;">F1 <span style="color:var(--red)">Fantasy</span> Setup</h2>
     <p style="color:var(--muted);font-size:0.83rem;margin-bottom:2rem;">Einmalige Einrichtung — danach können alle Spieler die Website gemeinsam nutzen.</p>
@@ -472,11 +470,25 @@ Object.entries(CONSTRUCTOR_TEAMS).forEach(([team,drivers]) =>
 );
 
 // ============================================================
-// CONFIG (stored in localStorage per device)
+// CONFIG — fest eingebaut, kein Setup nötig
 // ============================================================
-const CFG_KEY = 'f1_fantasy_config';
-function getConfig() { try { return JSON.parse(localStorage.getItem(CFG_KEY))||null; } catch { return null; } }
-function saveConfig(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+const HARDCODED_CONFIG = {
+  url: 'https://tbvqxbyadzolltlgsoxv.supabase.co',
+  key: 'sb_publishable_pCsMLm-fostNAK1ZOvcAFA_57alHKxi',
+  adminPin: 'admin123',
+  pins: {
+    'Mattis':   'Mattis',
+    'Jan Luca': 'Jan Luca',
+    'Tjark':    'Tjark',
+    'Lewe':     'Lewe',
+    'Leon':     'Leon',
+    'Lennis':   'Lennis',
+    'Nick':     'Nick',
+    'Jorve':    'Jorve',
+  }
+};
+function getConfig() { return HARDCODED_CONFIG; }
+function saveConfig(cfg) {} // nicht mehr nötig
 
 // ============================================================
 // APP STATE
@@ -525,14 +537,9 @@ function toggleDevice() {
 
 function continueAfterDevice() {
   const cfg = getConfig();
-  if (!cfg || !cfg.url || !cfg.key) {
-    document.getElementById('setupScreen').classList.remove('hidden');
-    buildSetupPins();
-  } else {
-    supabaseUrl = cfg.url;
-    supabaseKey = cfg.key;
-    showLogin();
-  }
+  supabaseUrl = cfg.url;
+  supabaseKey = cfg.key;
+  showLogin();
 }
 
 // ============================================================
@@ -609,11 +616,17 @@ function refreshCurrentView() {
   if (!currentUser) return;
   const views = ['viewTeams','viewRanking','viewDraft','viewEnd','viewReadonly'];
   const active = views.find(v => !document.getElementById(v).classList.contains('hidden'));
-  if (active==='viewTeams')    renderTeams();
+  if (active==='viewTeams')        renderTeams();
   else if (active==='viewRanking') renderRanking();
-  else if (active==='viewDraft')   renderDraft();
+  else if (active==='viewDraft') {
+    if (state.appPhase==='end') { renderEndView(); showView('viewEnd'); }
+    else renderDraft();
+  }
   else if (active==='viewEnd')     renderEndView();
-  else if (active==='viewReadonly') renderReadonly();
+  else if (active==='viewReadonly') {
+    if (state.appPhase==='end') { renderEndView(); showView('viewEnd'); }
+    else renderReadonly();
+  }
 }
 
 // ============================================================
@@ -730,6 +743,7 @@ function navigateToPhase() {
     else { renderTeams(); showView('viewTeams'); }
   } else {
     if (state.appPhase==='draft') { renderDraft(); showView('viewDraft'); }
+    else if (state.appPhase==='end') { renderEndView(); showView('viewEnd'); }
     else { renderReadonly(); showView('viewReadonly'); }
   }
 }
