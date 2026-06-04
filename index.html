@@ -1,3 +1,108 @@
+
+
+<!DOCTYPE html> <html lang="de"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>F1 Fantasy Liga 2026</title> <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Bebas+Neue&display=swap" rel=
+
+pasted
+
+ok du musst nochmal helfen wenn man im draft beim open draft ein fahrer tauschen möchte werden als auswahl funktion nur teams gezeigt und das macht ja wenig sinn wa und auf dem handy sieht man während des drafts immernoch nicht welcher spieler welche teams hat
+
+2. Juni
+Ich schaue mir den Code genau an und beheide beide Bugs auf einmal.
+
+Bug 1 (Driver-Auswahl zeigt Teams): In upOpen() beim Typ "d" wird document.getElementById('oD').value gelesen, bevor oD überhaupt Inhalt hat — dadurch rutscht die Logik in den falschen Branch. Außerdem triggert onchange="upOpenTeamPick()" auf dem falschen Select für Driver-Picks.
+
+Bug 2 (Mobile Teams im Draft nicht sichtbar): Das mobile CSS blendet die 4. Spalte (Teams) mit display:none aus und das stacked Grid zeigt nur Fahrer, Teams bleiben verborgen.
+
+Hier ist der Fix — beide Teile:
+
+
+Extract the key sections to fix
+Extract the key sections to fix
+Das HTML ist lang, deshalb gebe ich dir die zwei präzisen Patches direkt:
+
+Patch 1 – upOpen() Driver-Fix
+Ersetze die komplette upOpen-Funktion:
+
+javascript
+function upOpen(){const type=document.getElementById('oT').value;const{fd,ft,pi}=window._od;const pt=S.playerTeams[pi];if(!type){['oDw','oPw','oBw'].forEach(i=>document.getElementById(i).classList.add('hidden'));return;}['oDw','oPw','oBw'].forEach(i=>document.getElementById(i).classList.remove('hidden'));
+  if(type==='d'){
+    const cur=pt.drivers.filter(Boolean);
+    document.getElementById('oD').innerHTML=cur.map(d=>{const dnf=isDnf(d);return`<option value="${d}" ${dnf?'disabled style="color:#f55"':''} title="${dnf?'DNF':''}">${d}${dnf?' (DNF ✗)':''}</option>`;}).join('');
+    document.getElementById('oD').onchange=upOpenDriverPick;
+    const dv=document.getElementById('oD').value;
+    document.getElementById('oP').innerHTML=fd.filter(d=>!isDnf(d)).map(d=>{const sim=dv?cur.filter(p=>p!==dv).concat([d]):cur.filter(p=>D2T[p]!==D2T[d]).concat([d]);const err=chkD(sim);const star=TOP_DT.includes(D2T[d])?'⭐ ':'';return`<option value="${d}" ${err?'disabled style="color:#f55"':''} title="${err||''}">${star}${d}${err?' ✗':''}</option>`;}).join('');
+  }else{
+    const allTeams=pt.teams.filter(t=>t);
+    document.getElementById('oD').innerHTML=allTeams.map(t=>`<option value="${t}">${t===PLACEHOLDER?'— Freie Wahl (Platzhalter)':t}</option>`).join('');
+    document.getElementById('oD').onchange=upOpenTeamPick;
+    const dv=document.getElementById('oD').value||allTeams[0]||'';
+    const otherTeams=pt.teams.filter(x=>x&&x!==dv&&x!==PLACEHOLDER);
+    document.getElementById('oP').innerHTML=ft.map(t=>{const testT=[...otherTeams,t];const err=chkT(testT);return`<option value="${t}" ${err?'disabled style="color:#f55"':''} title="${err||''}">${TOP_T.includes(t)?'⭐ ':''}${t}${err?' ✗':''}</option>`;}).join('');
+  }
+  document.getElementById('oErr').classList.add('hidden');
+}
+
+function upOpenDriverPick(){
+  const{fd,pi}=window._od;
+  const pt=S.playerTeams[pi];
+  const cur=pt.drivers.filter(Boolean);
+  const dv=document.getElementById('oD').value;
+  document.getElementById('oP').innerHTML=fd.filter(d=>!isDnf(d)).map(d=>{const sim=dv?cur.filter(p=>p!==dv).concat([d]):cur.filter(p=>D2T[p]!==D2T[d]).concat([d]);const err=chkD(sim);const star=TOP_DT.includes(D2T[d])?'⭐ ':'';return`<option value="${d}" ${err?'disabled style="color:#f55"':''} title="${err||''}">${star}${d}${err?' ✗':''}</option>`;}).join('');
+}
+Was geändert: oD.onchange wird jetzt dynamisch auf upOpenDriverPick (Fahrer) oder upOpenTeamPick (Team) gesetzt, je nach Typ. Außerdem wird oD.value erst nach dem Befüllen von oD.innerHTML gelesen.
+
+Patch 2 – Mobile Teams im Draft sichtbar machen
+Im CSS-Block, ersetze diese Regel:
+
+css
+body.mb .brow>div:last-child{display:none;}/* hide teams col on board - shown in tags below */
+Löschen (komplett raus). Und ersetze den ganzen mobilen Board-Block am Ende:
+
+css
+body.mb .brow{display:grid;grid-template-columns:32px 1fr;grid-template-rows:auto auto auto;padding:0.65rem 0.75rem;gap:0.2rem 0.35rem;}
+body.mb .brow-pos{grid-column:1;grid-row:1 / 4;align-self:center;font-size:1rem;justify-content:center;}
+body.mb .brow-name{grid-column:2;grid-row:1;}
+body.mb .brow .btags:nth-child(3){grid-column:2;grid-row:2;}
+body.mb .brow .btags:nth-child(4){grid-column:2;grid-row:3;}
+body.mb .board-hdr{display:grid;grid-template-columns:32px 1fr;padding:0.45rem 0.75rem;}
+body.mb .board-hdr>div:nth-child(3),body.mb .board-hdr>div:nth-child(4){display:none;}
+Was geändert: 3 Rows statt 2 → Row 1 Name, Row 2 Fahrer-Tags, Row 3 Team-Tags. Die Position-Zelle spannt alle 3 Rows. Header zeigt nur # + Spieler (die Tags-Columns werden eh gestapelt angezeigt).
+
+Zusammenfassung
+Bug	Ursache	Fix
+Driver-Pick zeigt Teams	onchange immer auf upOpenTeamPick verdrahtet; oD.value vor innerHTML gelesen	Dynamisches onchange + Reihenfolge korrigiert
+Mobile Teams unsichtbar im Draft	display:none auf letzter Spalte + Grid nur 2 Rows	display:none entfernt, 3-Row-Grid für Name/Fahrer/Teams
+schreibe mir den ganzen code bitte
+
+2. Juni
+Ich schreibe dir den kompletten aktualisierten Code:
+
+
+Hat einen Befehl ausgeführt, datei lesen
+Hat einen Befehl ausgeführt, datei lesen
+Fertig! Die zwei Fixes im Überblick:
+
+Bug 1 – Open Draft Fahrer-Pick: upOpen() wurde komplett neu strukturiert. Für Fahrer und Teams gibt es jetzt separate Handler-Funktionen (upOpenDriverPick / upOpenTeamPick), die dynamisch per onchange verdrahtet werden — erst nachdem das Dropdown befüllt wurde. Dadurch zeigt der Fahrer-Pick jetzt korrekt Fahrer statt Teams.
+
+Bug 2 – Mobile Teams im Draft: Das CSS wurde auf ein 3-Row-Grid umgestellt. Die Position-Zahl spannt alle 3 Zeilen, darunter kommen Name → Fahrer-Tags → Team-Tags. Das alte display:none auf der letzten Spalte ist weg.
+
+
+F1 fantasy
+Code · HTML 
+
+Claude funktioniert direkt in PowerPoint
+
+Claude verwendet deine Layouts, Schriftarten und Vorlagen, um jede Folie markenkonform zu halten.
+
+
+
+
+
+Claude ist eine KI und kann Fehler machen. Bitte überprüfe die Antworten.
+
+
+raw
+F1 fantasy · HTML
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -32,7 +137,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-weight:400;min-height:100vh;}
-
+ 
 /* TOPBAR */
 .topbar{
   position:fixed;top:0;left:0;right:0;z-index:200;
@@ -85,14 +190,14 @@ body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-w
 .tbtn-red:hover{background:var(--red2);border-color:var(--red2);color:#fff;}
 .tbtn-ghost{border-color:transparent;color:var(--ink3);}
 .tbtn-ghost:hover{background:var(--bg3);border-color:var(--border);color:var(--ink);}
-
+ 
 /* MAIN */
 .app-body{padding-top:56px;min-height:100vh;}
 main{max-width:1440px;margin:0 auto;padding:2rem 1.5rem;}
-
+ 
 /* FULLSCREEN */
 .fs{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;}
-
+ 
 /* DEVICE SCREEN */
 .dev-wrap{width:100%;max-width:480px;text-align:center;}
 .dev-title{font-family:'Bebas Neue',cursive;font-size:3rem;letter-spacing:3px;color:var(--ink);margin-bottom:0.25rem;}
@@ -108,7 +213,7 @@ main{max-width:1440px;margin:0 auto;padding:2rem 1.5rem;}
 .dev-icon{font-size:2.5rem;}
 .dev-lbl{font-family:'Bebas Neue',cursive;font-size:1.4rem;letter-spacing:2px;color:var(--ink);}
 .dev-hint{font-size:0.68rem;font-weight:500;color:var(--ink4);letter-spacing:0.5px;}
-
+ 
 /* LOGIN */
 .login-wrap{
   background:var(--bg2);border-radius:20px;
@@ -144,7 +249,7 @@ main{max-width:1440px;margin:0 auto;padding:2rem 1.5rem;}
 .big-btn.red{background:var(--red);}
 .big-btn.red:hover{background:var(--red2);}
 .err-msg{font-size:0.75rem;font-weight:500;color:var(--red);padding:0.4rem 0;}
-
+ 
 /* PAGE HEADER */
 .ph{
   display:flex;align-items:flex-end;justify-content:space-between;
@@ -156,7 +261,7 @@ main{max-width:1440px;margin:0 auto;padding:2rem 1.5rem;}
 .ph-title span{color:var(--red);}
 .ph-sub{font-size:0.75rem;font-weight:500;color:var(--ink3);margin-top:0.25rem;}
 .ph-right{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;}
-
+ 
 /* RULES STRIP */
 .rules-strip{
   background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--red);
@@ -165,7 +270,7 @@ main{max-width:1440px;margin:0 auto;padding:2rem 1.5rem;}
   margin-bottom:1.5rem;line-height:1.8;
 }
 .rules-strip b{color:var(--ink);font-weight:700;}
-
+ 
 /* PLAYER CARDS */
 .pcards{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;}
 @media(max-width:1200px){.pcards{grid-template-columns:repeat(2,1fr);}}
@@ -210,7 +315,7 @@ select{
 select:focus{outline:none;border-color:var(--ink);}
 select option{background:var(--bg2);}
 select:disabled{opacity:.35;cursor:not-allowed;}
-
+ 
 /* TAGS */
 .tag{
   display:inline-flex;align-items:center;gap:3px;
@@ -219,13 +324,13 @@ select:disabled{opacity:.35;cursor:not-allowed;}
   border:1.5px solid transparent;margin:1px;white-space:nowrap;
 }
 .team-counter{font-size:0.58rem;opacity:.75;margin-left:1px;}
-
+ 
 /* SAVE BAR */
 .save-bar{
   display:flex;align-items:center;justify-content:flex-end;
   gap:0.6rem;margin-top:1.5rem;flex-wrap:wrap;
 }
-
+ 
 /* RANKING */
 .rgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.85rem;}
 @media(max-width:1100px){.rgrid{grid-template-columns:repeat(2,1fr);}}
@@ -242,7 +347,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 .rpos.g{color:var(--gold);}
 .rpos.s{color:var(--silver);}
 .rpos.b{color:var(--bronze);}
-
+ 
 /* DNF SECTION */
 .dnf-grid{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.5rem;}
 .dnf-btn{
@@ -253,7 +358,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 }
 .dnf-btn:hover{border-color:var(--red);}
 .dnf-btn.on{border-color:var(--red);background:rgba(239,68,68,.08);color:var(--red);}
-
+ 
 /* ABGABE */
 .abgabe-list{display:flex;flex-direction:column;gap:0.6rem;margin-bottom:1.5rem;}
 .abgabe-row{
@@ -269,7 +374,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 }
 .abtoggle:hover{border-color:var(--red);}
 .abtoggle.on{border-color:var(--red);background:rgba(239,68,68,.08);color:var(--red);}
-
+ 
 /* COUNTER EDIT */
 .ced-card{
   background:var(--bg2);border:1px solid var(--border);border-radius:8px;
@@ -287,11 +392,11 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 }
 .ced-inp:focus{outline:none;border-color:var(--red);}
 .ced-max{font-size:0.62rem;color:var(--ink4);}
-
+ 
 /* DRAFT */
 .draft-wrap{display:grid;grid-template-columns:1fr 320px;gap:1rem;align-items:start;}
 @media(max-width:960px){.draft-wrap{grid-template-columns:1fr;}}
-
+ 
 /* PHASE TABS */
 .phase-tabs{display:flex;gap:0.5rem;margin-bottom:1.2rem;}
 .phase-tab{
@@ -310,7 +415,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 }
 .phase-tab.active .phase-tab-n{background:var(--red);color:#fff;}
 .phase-tab.done .phase-tab-n{background:var(--green);color:#fff;}
-
+ 
 /* BOARD */
 .board{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
 .board-hdr{
@@ -337,7 +442,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 .brow-name{font-size:0.82rem;font-weight:700;display:flex;align-items:center;gap:0.35rem;padding-top:0.15rem;}
 .me-pip{width:5px;height:5px;border-radius:50%;background:var(--red);flex-shrink:0;}
 .btags{display:flex;flex-wrap:wrap;gap:3px;}
-
+ 
 /* SIDEBAR */
 .draft-side{
   display:flex;flex-direction:column;gap:1rem;
@@ -363,7 +468,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 .qname{font-size:0.8rem;font-weight:700;}
 .qlbl{font-size:0.65rem;color:var(--ink4);}
 .qyou{margin-left:auto;font-size:0.6rem;font-weight:700;color:var(--red);letter-spacing:0.5px;}
-
+ 
 /* ACTION */
 .action-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
 .action-hdr{
@@ -388,7 +493,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 .acbtn.ghost{background:transparent;border:1.5px solid var(--border2);color:var(--ink2);}
 .acbtn.ghost:hover{border-color:var(--ink2);color:var(--ink);background:var(--bg3);}
 .aerr{font-size:0.72rem;font-weight:500;color:var(--red);padding:0.3rem 0;}
-
+ 
 /* ALERTS */
 .al{padding:0.65rem 0.85rem;border-radius:8px;font-size:0.76rem;font-weight:500;margin-bottom:0.65rem;}
 .al-info{background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);color:var(--blue);}
@@ -397,7 +502,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 .al-wait{background:var(--bg3);border:1px solid var(--border);text-align:center;padding:1.5rem;border-radius:8px;}
 .al-wait-name{font-size:1rem;font-weight:800;color:var(--ink);margin-bottom:0.25rem;}
 .al-wait-sub{font-size:0.7rem;color:var(--ink4);}
-
+ 
 /* END */
 .end-table{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:2rem;}
 .end-hdr{display:grid;grid-template-columns:70px 150px 1fr 1fr;padding:0.55rem 1.2rem;background:var(--bg3);border-bottom:1px solid var(--border);font-size:0.6rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink4);}
@@ -409,7 +514,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 .epos.s{color:var(--silver);}
 .epos.b{color:var(--bronze);}
 .ename{font-size:0.9rem;font-weight:700;}
-
+ 
 /* READONLY */
 .ro-status{
   display:inline-flex;align-items:center;gap:0.4rem;
@@ -419,7 +524,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
   color:var(--ink3);margin-bottom:1.2rem;
 }
 .ro-status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
-
+ 
 /* TOAST */
 .toast{
   position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;
@@ -431,7 +536,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 }
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.error{background:var(--red);}
-
+ 
 /* MODAL */
 .modal-ov{
   position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;
@@ -446,7 +551,7 @@ select:disabled{opacity:.35;cursor:not-allowed;}
 .modal h3{font-family:'Bebas Neue',cursive;font-size:1.4rem;letter-spacing:1px;margin-bottom:0.5rem;}
 .modal p{font-size:0.84rem;color:var(--ink3);margin-bottom:1.5rem;line-height:1.6;}
 .modal-row{display:flex;gap:0.6rem;justify-content:flex-end;}
-
+ 
 /* MOBILE */
 body.mb{font-size:16px;}
 body.mb .topbar{padding:0 0.75rem;height:52px;}
@@ -457,53 +562,50 @@ body.mb .ph{flex-direction:column;align-items:flex-start;margin-bottom:1rem;}
 body.mb .ph-title{font-size:1.6rem;}
 body.mb .ph-right{width:100%;flex-wrap:wrap;}
 body.mb .ph-right .tbtn,body.mb .ph-right .big-btn{flex:1;min-width:120px;padding:0.65rem 0.5rem;text-align:center;font-size:0.75rem;}
-
+ 
 /* Mobile player cards */
 body.mb .pcards{grid-template-columns:1fr;}
 body.mb .pcard select{font-size:1rem;padding:0.65rem 2rem 0.65rem 0.75rem;min-height:44px;}
-
+ 
 /* Mobile ranking */
 body.mb .rgrid{grid-template-columns:1fr 1fr;}
 body.mb .rcard{padding:0.85rem;}
-
+ 
 /* Mobile draft layout - stack vertically, action panel first */
 body.mb .draft-wrap{grid-template-columns:1fr;gap:0.75rem;}
-body.mb .draft-side{position:static;order:-1;}/* action panel on top */
-
-/* Mobile board - show all columns but compact */
-body.mb .board-hdr{grid-template-columns:32px 90px 1fr;font-size:0.55rem;padding:0.5rem 0.75rem;}
-body.mb .brow{grid-template-columns:32px 90px 1fr;padding:0.6rem 0.75rem;gap:0.35rem;}
-body.mb .brow>div:last-child{display:none;}/* hide teams col on board - shown in tags below */
-body.mb .brow-pos{font-size:1rem;}
-body.mb .brow-name{font-size:0.78rem;}
+body.mb .draft-side{position:static;order:-1;}
+ 
+/* Mobile board - stacked 3-row layout showing name + drivers + teams */
+body.mb .board-hdr{display:grid;grid-template-columns:32px 1fr;padding:0.45rem 0.75rem;}
+body.mb .board-hdr>div:nth-child(3){display:none;}
+body.mb .board-hdr>div:nth-child(4){display:none;}
+body.mb .brow{display:grid;grid-template-columns:32px 1fr;grid-template-rows:auto auto auto;padding:0.65rem 0.75rem;gap:0.2rem 0.35rem;}
+body.mb .brow-pos{grid-column:1;grid-row:1 / 4;align-self:center;font-size:1rem;justify-content:center;}
+body.mb .brow-name{grid-column:2;grid-row:1;}
+body.mb .brow .btags:nth-child(3){grid-column:2;grid-row:2;}
+body.mb .brow .btags:nth-child(4){grid-column:2;grid-row:3;}
 body.mb .tag{font-size:0.66rem;padding:0.15rem 0.5rem;}
-
-/* Mobile board - show teams below name instead */
-body.mb .brow{grid-template-columns:32px 1fr;flex-wrap:wrap;}
-body.mb .brow-pos{grid-row:1;grid-column:1;}
-body.mb .brow-name{grid-row:1;grid-column:2;}
-body.mb .brow .btags:first-of-type{grid-row:2;grid-column:2;padding-left:0;}
-
+ 
 /* Mobile queue */
 body.mb .queue{max-height:180px;}
 body.mb .qi{padding:0.75rem 1rem;min-height:48px;}
 body.mb .qname{font-size:0.9rem;}
 body.mb .qlbl{font-size:0.7rem;}
-
+ 
 /* Mobile action panel - big touch targets */
 body.mb .action-body{padding:1rem;}
 body.mb .acbtn{padding:1rem;font-size:0.85rem;min-height:48px;margin-bottom:0.5rem;}
 body.mb .acbtn.ghost{padding:0.85rem;min-height:44px;}
 body.mb .action-body select{font-size:1rem;padding:0.75rem 2rem 0.75rem 0.85rem;min-height:48px;}
 body.mb .afield-label{font-size:0.7rem;margin-bottom:0.4rem;}
-
+ 
 /* Mobile login */
 body.mb .login-wrap{padding:1.5rem;}
 body.mb .player-grid-l{grid-template-columns:repeat(3,1fr);gap:0.4rem;}
 body.mb .plbtn{padding:0.75rem 0.3rem;font-size:0.82rem;min-height:44px;}
 body.mb .ifield{font-size:1rem;padding:0.75rem 1rem;min-height:48px;}
 body.mb .big-btn{padding:1rem;font-size:0.88rem;min-height:48px;}
-
+ 
 /* Mobile end table */
 body.mb .end-hdr{grid-template-columns:48px 1fr;padding:0.5rem 0.85rem;}
 body.mb .end-hdr>div:nth-child(3),body.mb .end-hdr>div:nth-child(4){display:none;}
@@ -512,42 +614,32 @@ body.mb .epos{grid-column:1;grid-row:1/4;align-self:center;font-size:1.5rem;}
 body.mb .ename{grid-column:2;grid-row:1;font-size:0.85rem;}
 body.mb .erow .btags:nth-child(3){grid-column:2;grid-row:2;}
 body.mb .erow .btags:nth-child(4){grid-column:2;grid-row:3;margin-top:2px;}
-
+ 
 /* Mobile save bar */
 body.mb .save-bar{flex-direction:column;gap:0.5rem;}
 body.mb .save-bar .tbtn,body.mb .save-bar .big-btn{width:100%;text-align:center;padding:0.75rem;min-height:44px;}
-
+ 
 /* Mobile topbar buttons */
 body.mb .tbtn{padding:0.35rem 0.65rem;font-size:0.68rem;}
 body.mb #adminBtns{flex-wrap:wrap;gap:0.35rem;}
 body.mb .user-badge{font-size:0.68rem;padding:0.2rem 0.65rem;}
-
+ 
 /* Mobile phase tabs */
 body.mb .phase-tabs{flex-wrap:wrap;gap:0.4rem;margin-bottom:0.75rem;}
 body.mb .phase-tab{padding:0.55rem 0.9rem;font-size:0.68rem;flex:1;justify-content:center;}
-
+ 
 /* Mobile DNF + Abgabe */
 body.mb .dnf-btn{padding:0.5rem 0.85rem;font-size:0.78rem;min-height:40px;}
 body.mb .abtoggle{padding:0.5rem 0.85rem;font-size:0.78rem;min-height:40px;}
-
+ 
 /* Mobile rules strip */
 body.mb .rules-strip{font-size:0.72rem;padding:0.6rem 0.85rem;}
-
-/* Ensure draft board shows teams on mobile via stacked layout */
-body.mb .brow{display:grid;grid-template-columns:32px 1fr;grid-template-rows:auto auto;padding:0.65rem 0.75rem;gap:0.25rem 0.35rem;}
-body.mb .brow-pos{grid-column:1;grid-row:1 / 3;align-self:center;font-size:1rem;justify-content:center;}
-body.mb .brow-name{grid-column:2;grid-row:1;}
-body.mb .brow .btags:nth-child(3){grid-column:2;grid-row:2;}/* drivers */
-body.mb .brow .btags:nth-child(4){grid-column:2;grid-row:3;}/* teams - show as extra row */
-body.mb .board-hdr{display:grid;grid-template-columns:32px 1fr;padding:0.45rem 0.75rem;}
-body.mb .board-hdr>div:nth-child(3){display:none;}
-body.mb .board-hdr>div:nth-child(4){display:none;}
-
+ 
 .hidden{display:none!important;}
 </style>
 </head>
 <body>
-
+ 
 <div class="toast" id="toast"></div>
 <div class="modal-ov hidden" id="mOv">
   <div class="modal">
@@ -558,8 +650,8 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     </div>
   </div>
 </div>
-
-<!-- TOPBAR (app only) -->
+ 
+<!-- TOPBAR -->
 <div class="topbar hidden" id="topbar">
   <div class="topbar-left">
     <div class="t-logo"><span class="t-logo-badge">F1</span>Fantasy</div>
@@ -579,7 +671,7 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     <button class="tbtn" id="devBtn" onclick="flipDev()">📱</button>
   </div>
 </div>
-
+ 
 <!-- DEVICE -->
 <div class="fs" id="devScr">
   <div class="dev-wrap">
@@ -591,7 +683,7 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     </div>
   </div>
 </div>
-
+ 
 <!-- LOGIN -->
 <div class="fs hidden" id="loginScr">
   <div class="login-wrap">
@@ -606,11 +698,11 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     <div id="loginErr" class="err-msg hidden"></div>
   </div>
 </div>
-
+ 
 <!-- APP -->
 <div class="app-body hidden" id="appBody">
 <main>
-
+ 
   <!-- TEAMS -->
   <div id="vTeams" class="hidden">
     <div class="ph">
@@ -627,7 +719,7 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     <div class="rules-strip"><b>Regeln:</b> Max. 2 ⭐Top-Fahrer (Merc/Fer/McL/RBR) · Max. 1 ⭐Top-Team (Merc/Fer/McL/RBR) · Nicht beide Fahrer eines Konstrukteurs · Max. 2 Spieler pro Fahrer/Team</div>
     <div class="pcards" id="playerGrid"></div>
   </div>
-
+ 
   <!-- RANKING -->
   <div id="vRanking" class="hidden">
     <div class="ph">
@@ -642,7 +734,7 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     </div>
     <div class="rgrid" id="rankGrid"></div>
   </div>
-
+ 
   <!-- DNF -->
   <div id="vDNF" class="hidden">
     <div class="ph">
@@ -658,7 +750,7 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     </div>
     <div class="dnf-grid" id="dnfGrid"></div>
   </div>
-
+ 
   <!-- ABGABE -->
   <div id="vAbgabe" class="hidden">
     <div class="ph">
@@ -680,7 +772,7 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     </div>
     <div class="abgabe-list" id="abgabeGrid"></div>
   </div>
-
+ 
   <!-- DRAFT -->
   <div id="vDraft" class="hidden">
     <div class="ph" style="margin-bottom:1rem;">
@@ -712,7 +804,7 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
       </div>
     </div>
   </div>
-
+ 
   <!-- END -->
   <div id="vEnd" class="hidden">
     <div class="ph">
@@ -727,7 +819,7 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     </div>
     <div class="save-bar" id="endBar"></div>
   </div>
-
+ 
   <!-- READONLY -->
   <div id="vReadonly" class="hidden">
     <div class="ph">
@@ -739,10 +831,10 @@ body.mb .board-hdr>div:nth-child(4){display:none;}
     <div class="ro-status"><div class="ro-status-dot"></div><span id="roSub">—</span></div>
     <div class="board" id="roBoard"></div>
   </div>
-
+ 
 </main>
 </div>
-
+ 
 <script>
 'use strict';
 const TC={'Mercedes':'#00d2be','Ferrari':'#dc0000','McLaren':'#ff8000','Red Bull':'#3671c6','Williams':'#005aff','Racing Bulls':'#1434cb','Haas':'#7a7a7a','Alpine':'#e4006e','Audi':'#bb0000','Cadillac':'#555','Aston Martin':'#006f62'};
@@ -754,17 +846,17 @@ const TOP_DT=['Mercedes','Ferrari','McLaren','Red Bull'];
 const D2T={};Object.entries(CT).forEach(([t,ds])=>ds.forEach(d=>D2T[d]=t));
 const PLACEHOLDER='— Freie Wahl —';
 const CFG={url:'https://tbvqxbyadzolltlgsoxv.supabase.co',key:'sb_publishable_pCsMLm-fostNAK1ZOvcAFA_57alHKxi',adminPin:'admin123',pins:{Mattis:'Mattis','Jan Luca':'Jan Luca',Tjark:'Tjark',Lewe:'Lewe',Leon:'Leon',Lennis:'Lennis',Nick:'Nick',Jorve:'Jorve'}};
-
+ 
 let S={playerTeams:PLAYERS.map(()=>({drivers:['','','','',''],teams:['','']})),ranking:[],draft:null,appPhase:'teams'};
 let ME=null,poll=null;
 let abgabeMarked={};
-
+ 
 // DEVICE
 let dev=localStorage.getItem('f1_dev')||null;
 function applyDev(d){const b=document.getElementById('devBtn');if(d==='mb'){document.body.classList.add('mb');if(b)b.textContent='🖥️';}else{document.body.classList.remove('mb');if(b)b.textContent='📱';}}
 function pickDev(d){dev=d;localStorage.setItem('f1_dev',d);applyDev(d);document.getElementById('devScr').classList.add('hidden');showLogin();}
 function flipDev(){dev=dev==='mb'?'pc':'mb';localStorage.setItem('f1_dev',dev);applyDev(dev);}
-
+ 
 // DB
 async function dbR(k){const r=await fetch(`${CFG.url}/rest/v1/liga_state?key=eq.${k}&select=value`,{headers:{apikey:CFG.key,Authorization:`Bearer ${CFG.key}`}});if(!r.ok)throw 0;const d=await r.json();return d.length?d[0].value:null;}
 async function dbW(k,v){const r=await fetch(`${CFG.url}/rest/v1/liga_state`,{method:'POST',headers:{apikey:CFG.key,Authorization:`Bearer ${CFG.key}`,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify({key:k,value:v,updated_at:new Date().toISOString()})});if(!r.ok)throw 0;}
@@ -773,18 +865,18 @@ async function pull(){try{setSync('s');const v=await dbR('state');if(v)S=v;setSy
 async function push(){try{setSync('s');await dbW('state',S);setSync('ok');}catch{setSync('e');toast('Speichern fehlgeschlagen!',1);}}
 function startPoll(){if(poll)clearInterval(poll);let h=JSON.stringify(S);poll=setInterval(async()=>{try{const v=await dbR('state');if(!v)return;const n=JSON.stringify(v);if(n!==h){h=n;S=v;rerender();}}catch{}},5000);}
 function rerender(){if(!ME)return;const vs=['vTeams','vRanking','vDNF','vAbgabe','vDraft','vEnd','vReadonly'];const cur=vs.find(v=>!document.getElementById(v).classList.contains('hidden'));if(cur==='vTeams')rTeams();else if(cur==='vRanking')rRanking();else if(cur==='vDNF')rDnf();else if(cur==='vAbgabe')rAbgabe();else if(cur==='vDraft'){if(S.appPhase==='end'){rEnd();showV('vEnd');}else rDraft();}else if(cur==='vEnd')rEnd();else if(cur==='vReadonly'){if(S.appPhase==='end'){rEnd();showV('vEnd');}else rReadonly();}}
-
+ 
 // LOGIN
 function showLogin(){['appBody'].forEach(i=>document.getElementById(i).classList.add('hidden'));document.getElementById('topbar').classList.add('hidden');document.getElementById('loginScr').classList.remove('hidden');const g=document.getElementById('loginGrid');g.innerHTML=['Admin',...PLAYERS].map(n=>`<button class="plbtn" onclick="pickP(this,'${n}')">${n}</button>`).join('');document.getElementById('pinWrap').classList.add('hidden');document.getElementById('loginErr').classList.add('hidden');document.getElementById('pinInp').value='';}
 let picked=null;
 function pickP(el,n){picked=n;document.querySelectorAll('.plbtn').forEach(b=>b.classList.remove('on'));el.classList.add('on');document.getElementById('pinLbl').textContent=`PIN für ${n}`;document.getElementById('pinWrap').classList.remove('hidden');document.getElementById('loginErr').classList.add('hidden');document.getElementById('pinInp').focus();}
 function doLogin(){const pin=document.getElementById('pinInp').value.trim(),err=document.getElementById('loginErr');if(!picked){err.textContent='Namen wählen.';err.classList.remove('hidden');return;}if(!pin){err.textContent='PIN eingeben.';err.classList.remove('hidden');return;}if(picked==='Admin'){if(pin!==CFG.adminPin){err.textContent='Falscher PIN.';err.classList.remove('hidden');return;}ME={name:'Admin',isAdmin:true,idx:-1};}else{if(pin!==CFG.pins[picked]){err.textContent='Falscher PIN.';err.classList.remove('hidden');return;}ME={name:picked,isAdmin:false,idx:PLAYERS.indexOf(picked)};}err.classList.add('hidden');document.getElementById('loginScr').classList.add('hidden');enterApp();}
 function logout(){ME=null;if(poll)clearInterval(poll);showLogin();}
-
+ 
 // APP
 async function enterApp(){document.getElementById('appBody').classList.remove('hidden');document.getElementById('topbar').classList.remove('hidden');const ub=document.getElementById('userBadge');ub.textContent=ME.name;ub.className='user-badge'+(ME.isAdmin?' admin':'');const ab=document.getElementById('adminBtns');if(ME.isAdmin){ab.classList.remove('hidden');ab.style.display='flex';}else ab.classList.add('hidden');await pull();startPoll();go();}
 function go(){if(ME.isAdmin){if(S.appPhase==='teams'){rTeams();showV('vTeams');}else if(S.appPhase==='ranking'){rRanking();showV('vRanking');}else if(S.appPhase==='draft'){rDraft();showV('vDraft');}else{rEnd();showV('vEnd');}}else{if(S.appPhase==='draft'){rDraft();showV('vDraft');}else if(S.appPhase==='end'){rEnd();showV('vEnd');}else{rReadonly();showV('vReadonly');}}}
-
+ 
 function showV(id){
   ['vTeams','vRanking','vDNF','vAbgabe','vDraft','vEnd','vReadonly'].forEach(v=>document.getElementById(v).classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
@@ -798,58 +890,58 @@ function goTeams(){if(!ME?.isAdmin)return;rTeams();showV('vTeams');}
 function expBak(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));a.download='f1_backup.json';a.click();toast('Exportiert!');}
 function impBak(e){if(!ME?.isAdmin)return;const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async ev=>{try{S=JSON.parse(ev.target.result);await push();go();toast('Importiert!');}catch{toast('Fehler!',1);}};r.readAsText(f);e.target.value='';}
 function askReset(){if(!ME?.isAdmin)return;openMod('Liga zurücksetzen','Alle Daten löschen?',async()=>{S={playerTeams:PLAYERS.map(()=>({drivers:['','','','',''],teams:['','']})),ranking:[],draft:null,appPhase:'teams'};await push();rTeams();showV('vTeams');toast('Reset!');});}
-
+ 
 // TAGS
 function dtag(d){const c=TC[D2T[d]]||'#888';return`<span class="tag" style="background:${c}22;border-color:${c}66;color:${c}">${d}</span>`;}
 function ttag(t,pi){if(t===PLACEHOLDER)return`<span class="tag" style="background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.4);color:#ef4444">Freie Wahl</span>`;const c=TC[t]||'#888';const races=(S.teamRaceCount&&S.teamRaceCount[pi])?(S.teamRaceCount[pi][t]||0):0;const warn=races>=4?'🔴':races>=3?'🟡':'';const ctr=races>0?`<span class="team-counter">${races}/4${warn}</span>`:'';return`<span class="tag" style="background:${c}22;border-color:${c}66;color:${c}">${t}${ctr}</span>`;}
-
+ 
 // RULES
 function getOwn(ex=-1){const dc={},tc={};DL.forEach(d=>dc[d]=0);TL.forEach(t=>tc[t]=0);S.playerTeams.forEach((pt,i)=>{if(i===ex)return;pt.drivers.forEach(d=>{if(d)dc[d]++;});pt.teams.forEach(t=>{if(t&&t!==PLACEHOLDER)tc[t]++;});});return{dc,tc};}
 function chkD(list){const a=list.filter(Boolean),s={};for(const d of a){const ct=D2T[d];if(s[ct])return`2× ${ct}`;s[ct]=d;}if(a.filter(d=>TOP_DT.includes(D2T[d])).length>2)return'Max 2 Top-Fahrer';return null;}
 function chkT(list){if(list.filter(t=>t&&t!==PLACEHOLDER).filter(t=>TOP_T.includes(t)).length>1)return'Max 1 Top-Team';return null;}
 function isDnf(d){return S.dnfDrivers&&S.dnfDrivers.includes(d);}
-
+ 
 // READONLY
 function rReadonly(){const phases={teams:'Teams werden bearbeitet',ranking:'Rennergebnis wird eingetragen',draft:'Draft läuft',end:'Draft abgeschlossen'};document.getElementById('roSub').textContent=phases[S.appPhase]||'—';const b=document.getElementById('roBoard');b.innerHTML=`<div class="board-hdr"><div>#</div><div>Spieler</div><div>Fahrer</div><div>Teams</div></div>`+PLAYERS.map((p,pi)=>{const pt=S.playerTeams[pi],me=pi===ME.idx;return`<div class="brow${me?' me':''}"><div class="brow-pos">${pi+1}</div><div class="brow-name">${me?'<span class="me-pip"></span>':''}<strong>${p}</strong></div><div class="btags">${pt.drivers.filter(Boolean).map(dtag).join('')||'—'}</div><div class="btags">${pt.teams.filter(Boolean).map(t=>ttag(t,pi)).join('')||'—'}</div></div>`;}).join('');}
-
+ 
 // TEAMS
 function rTeams(){const grid=document.getElementById('playerGrid');grid.innerHTML='';const isA=ME?.isAdmin;PLAYERS.forEach((player,pi)=>{const pt=S.playerTeams[pi];const{dc,tc}=getOwn(pi);const me=pi===ME.idx;let h=`<div class="pcard-top"><div class="pcard-num">${pi+1}</div><div class="pcard-name">${player}</div>${me?'<div class="pcard-me">Du</div>':''}</div><div class="pcard-body"><div class="psec">Fahrer</div>`;for(let di=0;di<5;di++){const val=pt.drivers[di]||'';h+=`<select ${!isA?'disabled':''} onchange="upD(${pi},${di},this.value)"><option value="">— Fahrer —</option>`;DL.forEach(d=>{const gf=(dc[d]||0)>=2&&d!==val;const td=[...pt.drivers];td[di]=d;const re=d!==val?chkD(td):null;const dis=gf||!!re;const suf=gf?' (gesperrt)':re?' ✗':(dc[d]||0)===1&&d!==val?' (½)':'';const star=TOP_DT.includes(D2T[d])?'⭐ ':'';h+=`<option value="${d}" ${val===d?'selected':''} ${dis?'disabled style="color:#bbb"':''} title="${re||''}">${star}${d}${suf}</option>`;});h+=`</select>`;}h+=`<div class="psec">Teams</div>`;for(let ti=0;ti<2;ti++){const val=pt.teams[ti]||'';h+=`<select ${!isA?'disabled':''} onchange="upT(${pi},${ti},this.value)"><option value="">— Team —</option>`;TL.forEach(t=>{const gf=(tc[t]||0)>=2&&t!==val;const tt=[...pt.teams];tt[ti]=t;const re=t!==val?chkT(tt):null;const dis=gf||!!re;const suf=gf?' (gesperrt)':re?' ✗':(tc[t]||0)===1&&t!==val?' (½)':'';const star=TOP_T.includes(t)?'⭐ ':'';h+=`<option value="${t}" ${val===t?'selected':''} ${dis?'disabled style="color:#bbb"':''} title="${re||''}">${star}${t}${suf}</option>`;});h+=`</select>`;}h+=`</div>`;const card=document.createElement('div');card.className='pcard';card.innerHTML=h;grid.appendChild(card);});const sb=document.getElementById('teamsBtns');if(sb){if(!isA)sb.classList.add('hidden');else sb.classList.remove('hidden');}}
 async function upD(pi,di,val){if(!ME?.isAdmin)return;if(val){const t=[...S.playerTeams[pi].drivers];t[di]=val;const e=chkD(t);if(e){toast(e,1);rTeams();return;}}S.playerTeams[pi].drivers[di]=val;await push();rTeams();}
 async function upT(pi,ti,val){if(!ME?.isAdmin)return;if(val){const t=[...S.playerTeams[pi].teams];t[ti]=val;const e=chkT(t);if(e){toast(e,1);rTeams();return;}}S.playerTeams[pi].teams[ti]=val;await push();rTeams();}
 async function saveTeams(){if(!ME?.isAdmin)return;for(let pi=0;pi<PLAYERS.length;pi++){const pt=S.playerTeams[pi];const d=pt.drivers.filter(Boolean),t=pt.teams.filter(Boolean);if(d.length<5){toast(`${PLAYERS[pi]}: 5 Fahrer wählen`,1);return;}if(new Set(d).size<5){toast(`${PLAYERS[pi]}: Duplikat`,1);return;}if(t.length<2){toast(`${PLAYERS[pi]}: 2 Teams wählen`,1);return;}if(new Set(t).size<2){toast(`${PLAYERS[pi]}: Duplikat`,1);return;}const de=chkD(d);if(de){toast(`${PLAYERS[pi]}: ${de}`,1);return;}const te=chkT(t);if(te){toast(`${PLAYERS[pi]}: ${te}`,1);return;}}S.appPhase='ranking';await push();rRanking();showV('vRanking');toast('Gespeichert!');}
-
+ 
 // RANKING
 function rRanking(){const g=document.getElementById('rankGrid');g.innerHTML='';const isA=ME?.isAdmin;for(let r=0;r<8;r++){const cur=S.ranking[r]!==undefined?S.ranking[r]:'';const pc=r===0?'g':r===1?'s':r===2?'b':'';const card=document.createElement('div');card.className='rcard';card.innerHTML=`<div class="rpos ${pc}">${r+1}</div><div style="flex:1"><div style="font-size:.58rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink4);margin-bottom:.3rem">Platz ${r+1}</div><select ${!isA?'disabled':''} onchange="upRank(${r},this.value)"><option value="">— Spieler —</option>${PLAYERS.map((p,pi)=>{const used=S.ranking.includes(pi)&&S.ranking[r]!==pi;return`<option value="${pi}" ${(cur===pi||cur===String(pi))?'selected':''} ${used?'disabled':''}>${p}</option>`;}).join('')}</select></div>`;g.appendChild(card);}const sb=document.getElementById('rankBtns');if(sb){if(!isA)sb.classList.add('hidden');else sb.classList.remove('hidden');}}
 function upRank(r,val){if(!ME?.isAdmin)return;S.ranking[r]=val===''?undefined:parseInt(val);rRanking();}
 async function saveRanking(){if(!ME?.isAdmin)return;const f=S.ranking.filter(r=>r!==undefined&&r!==null);if(f.length<8||new Set(f).size<8){toast('Alle 8 Plätze belegen!',1);return;}await push();if(!S.dnfDrivers)S.dnfDrivers=[];rDnf();showV('vDNF');}
-
+ 
 // DNF
 function rDnf(){if(!S.dnfDrivers)S.dnfDrivers=[];const g=document.getElementById('dnfGrid');if(!g)return;g.innerHTML=DL.map(d=>{const on=S.dnfDrivers.includes(d);const c=TC[D2T[d]]||'#888';return`<button class="dnf-btn${on?' on':''}" onclick="toggleDnf('${d}')" style="border-color:${on?'var(--red)':c+'55'};color:${on?'var(--red)':c}">${d}${on?' ✗ DNF':''}</button>`;}).join('');}
 function toggleDnf(d){if(!S.dnfDrivers)S.dnfDrivers=[];if(S.dnfDrivers.includes(d)){S.dnfDrivers=S.dnfDrivers.filter(x=>x!==d);}else{S.dnfDrivers.push(d);}rDnf();}
 function saveDNF(){rAbgabe();showV('vAbgabe');}
-
+ 
 // COUNTER EDIT
 function toggleCed(){const p=document.getElementById('cedPanel'),b=document.getElementById('cedBtn');const h=p.classList.contains('hidden');if(h){p.classList.remove('hidden');b.textContent='✕ Schließen';rCed();}else{p.classList.add('hidden');b.textContent='✏️ Rennen-Zähler bearbeiten';}}
 function rCed(){if(!S.teamRaceCount)S.teamRaceCount={};const g=document.getElementById('cedGrid');g.innerHTML='';PLAYERS.forEach((player,pi)=>{const pt=S.playerTeams[pi];const rt=pt.teams.filter(t=>t&&t!==PLACEHOLDER);if(!rt.length)return;if(!S.teamRaceCount[pi])S.teamRaceCount[pi]={};const card=document.createElement('div');card.className='ced-card';const th=rt.map(t=>{const val=S.teamRaceCount[pi][t]||0;const tid=`ci_${pi}_${t.replace(/\s/g,'_')}`;const c=TC[t]||'#888';return`<div class="ced-inp-wrap"><span class="ced-label" style="color:${c}">${t}</span><input class="ced-inp" type="number" id="${tid}" min="0" max="4" value="${val}"><span class="ced-max">/ 4</span></div>`;}).join('');card.innerHTML=`<div class="ced-name">${player}</div><div class="ced-teams">${th}</div>`;g.appendChild(card);});}
 function saveCed(){if(!S.teamRaceCount)S.teamRaceCount={};PLAYERS.forEach((_,pi)=>{const pt=S.playerTeams[pi];const rt=pt.teams.filter(t=>t&&t!==PLACEHOLDER);if(!S.teamRaceCount[pi])S.teamRaceCount[pi]={};rt.forEach(t=>{const el=document.getElementById(`ci_${pi}_${t.replace(/\s/g,'_')}`);if(el)S.teamRaceCount[pi][t]=Math.min(4,Math.max(0,parseInt(el.value)||0));});});rAbgabe();toast('Zähler gespeichert!');}
-
+ 
 // ABGABE
 function rAbgabe(){abgabeMarked={};PLAYERS.forEach((_,pi)=>abgabeMarked[pi]=[]);const g=document.getElementById('abgabeGrid');g.innerHTML='';PLAYERS.forEach((player,pi)=>{const pt=S.playerTeams[pi];const teams=pt.teams.filter(t=>t&&t!==PLACEHOLDER);const ctr=S.teamRaceCount||{};const card=document.createElement('div');card.className='abgabe-row';const th=teams.map(t=>{const races=(ctr[pi]?.[t]||0);const warn=races>=3?' ⚠️':'';return`<button class="abtoggle" id="abt_${pi}_${t.replace(/\s/g,'_')}" onclick="toggleAb(${pi},'${t}')">${t} ${races}/4${warn}</button>`;}).join('');card.innerHTML=`<div class="abgabe-name">${player}</div><div class="abgabe-teams">${th||'<span style="font-size:.75rem;color:var(--ink4)">Keine Teams</span>'}</div>`;g.appendChild(card);});}
 function toggleAb(pi,team){const arr=abgabeMarked[pi];const id=`abt_${pi}_${team.replace(/\s/g,'_')}`;const btn=document.getElementById(id);if(arr.includes(team)){abgabeMarked[pi]=arr.filter(t=>t!==team);btn.classList.remove('on');}else{arr.push(team);btn.classList.add('on');}}
 function saveAbgabe(){PLAYERS.forEach((_,pi)=>{const pt=S.playerTeams[pi];(abgabeMarked[pi]||[]).forEach(team=>{const idx=pt.teams.indexOf(team);if(idx!==-1)pt.teams[idx]=PLACEHOLDER;});});initDraft();}
-
+ 
 // DRAFT INIT
 function initDraft(){if(!S.teamRaceCount)S.teamRaceCount={};PLAYERS.forEach((_,pi)=>{if(!S.teamRaceCount[pi])S.teamRaceCount[pi]={};S.playerTeams[pi].teams.forEach(t=>{if(t&&t!==PLACEHOLDER)S.teamRaceCount[pi][t]=(S.teamRaceCount[pi][t]||0)+1;});});const r=S.ranking,picks=[];[r[7],r[6],r[5],r[4]].forEach((p,qi)=>picks.push({ph:1,pi:p,rank:qi+5,done:false,action:null}));for(let i=7;i>=0;i--){picks.push({ph:2,pi:r[i],rank:8-i,pn:1,done:false,action:null});picks.push({ph:2,pi:r[i],rank:8-i,pn:2,done:false,action:null});}S.draft={picks,cur:0,p1l:[],tgts:[r[0],r[1],r[2],r[3]],complete:false};S.appPhase='draft';push();rDraft();showV('vDraft');}
 function cp(){return S.draft?.picks[S.draft.cur]||null;}
 function myTurn(){const p=cp();if(!p)return false;return ME.isAdmin||p.pi===ME.idx;}
-
+ 
 // RENDER DRAFT
 function rDraft(){
   const d=S.draft,pick=cp(),phase=pick?pick.ph:3;
   document.getElementById('ph1').className='phase-tab'+(phase===1?' active':phase>1?' done':'');
   document.getElementById('ph2').className='phase-tab'+(phase===2?' active':phase>2?' done':'');
-
-  // Board sorted by ranking - always show all 4 columns
+ 
+  // Board sorted by ranking
   document.getElementById('boardBody').innerHTML=S.ranking.map((pi,ri)=>{
     const pt=S.playerTeams[pi],me=pi===ME.idx;
     const pc=ri===0?'g':ri===1?'s':ri===2?'b':'';
@@ -862,11 +954,11 @@ function rDraft(){
       <div class="btags">${teamTags}</div>
     </div>`;
   }).join('');
-
+ 
   // Queue
   const qw=document.getElementById('queueWrap');qw.innerHTML='';
   d.picks.forEach((pk,idx)=>{const isCur=idx===d.cur;const div=document.createElement('div');div.className='qi'+(isCur?' cur':pk.done?' done':'');const lbl=pk.ph===1?'Driver Swap':`Open Pick #${pk.pn}`;const me=pk.pi===ME.idx;div.innerHTML=`<div class="qdot"></div><div style="flex:1"><div class="qname">${PLAYERS[pk.pi]}</div><div class="qlbl">Phase ${pk.ph} · ${lbl}</div></div>${me?'<div class="qyou">DU</div>':''}`;qw.appendChild(div);});
-
+ 
   if(!pick){completeDraft();return;}
   document.getElementById('actionTitle').textContent=`${PLAYERS[pick.pi]} · Phase ${pick.ph}`;
   const body=document.getElementById('actionBody');body.innerHTML='';
@@ -874,7 +966,7 @@ function rDraft(){
   if(pick.ph===1)bSwap(body,pick);
   else bOpen(body,pick);
 }
-
+ 
 // SWAP PANEL
 function bSwap(body,pick){
   const d=S.draft,avail=d.tgts.filter(ti=>!d.p1l.includes(ti));
@@ -894,9 +986,8 @@ function bSwap(body,pick){
 }
 function upSwapTarget(){const ti=parseInt(document.getElementById('sT').value);if(isNaN(ti)){['sDw','sGw','sBw'].forEach(i=>document.getElementById(i).classList.add('hidden'));return;}document.getElementById('sDw').classList.remove('hidden');document.getElementById('sGw').classList.add('hidden');document.getElementById('sBw').classList.add('hidden');upSwapGet();}
 function upSwapGet(){const pick=cp();const ti=parseInt(document.getElementById('sT').value);if(isNaN(ti))return;const tI=S.playerTeams[ti].drivers.filter(Boolean);const pI=S.playerTeams[pick.pi].drivers.filter(Boolean);const gv=document.getElementById('sD').value;document.getElementById('sGw').classList.remove('hidden');document.getElementById('sBw').classList.remove('hidden');document.getElementById('sG').innerHTML=tI.map(d=>{if(isDnf(d))return`<option value="${d}" disabled style="color:#f55">${d} (DNF ✗)</option>`;const sim=gv?pI.filter(p=>p!==gv).concat([d]):[d];const err=chkD(sim);return`<option value="${d}" ${err?'disabled style="color:#f55"':''} title="${err||''}">${d}${err?' ✗':''}</option>`;}).join('');}
-function upSwap(){upSwapTarget();}
 async function doSwap(){if(!myTurn())return;const d=S.draft,pick=cp();const ti=parseInt(document.getElementById('sT').value);if(isNaN(ti)){toast('Tauschpartner wählen',1);return;}const gv=document.getElementById('sG').value,dv=document.getElementById('sD').value;if(!gv||!dv){toast('Alle Felder ausfüllen',1);return;}const pPT=S.playerTeams[pick.pi],tPT=S.playerTeams[ti];const nd=[...pPT.drivers];nd[nd.indexOf(dv)]=gv;const err=chkD(nd);if(err){const e=document.getElementById('sErr');e.textContent=`Regelverstoß: ${err}`;e.classList.remove('hidden');return;}tPT.drivers[tPT.drivers.indexOf(gv)]=dv;pPT.drivers[pPT.drivers.indexOf(dv)]=gv;d.p1l.push(ti);pick.done=true;pick.action={type:'swap',ti,gv,dv};await advance();}
-
+ 
 // OPEN PANEL
 function bOpen(body,pick){
   const{dc,tc}=getOwn();const pt=S.playerTeams[pick.pi];
@@ -906,13 +997,30 @@ function bOpen(body,pick){
   w.innerHTML=`<div class="al al-warn">Pick ${pick.pn} / 2</div>
     <div class="input-group"><label class="afield-label">Typ</label>
       <select id="oT" onchange="upOpen()"><option value="">— Fahrer oder Team —</option><option value="d">Fahrer</option><option value="t">Team</option></select></div>
-    <div class="input-group hidden" id="oDw"><label class="afield-label">Gebe ab</label><select id="oD" onchange="upOpenTeamPick()"></select></div>
+    <div class="input-group hidden" id="oDw"><label class="afield-label">Gebe ab</label><select id="oD"></select></div>
     <div class="input-group hidden" id="oPw"><label class="afield-label">Nehme</label><select id="oP"></select></div>
     <div id="oErr" class="aerr hidden"></div>
     <div id="oBw" class="hidden"><button class="acbtn" onclick="doOpen()">Pick bestätigen</button></div>
     <button class="acbtn ghost" onclick="skipPick()">Überspringen</button>`;
   body.appendChild(w);
 }
+ 
+// Called when "Gebe ab" changes for a DRIVER pick
+function upOpenDriverPick(){
+  const{fd,pi}=window._od;
+  const pt=S.playerTeams[pi];
+  const cur=pt.drivers.filter(Boolean);
+  const dv=document.getElementById('oD').value;
+  document.getElementById('oP').innerHTML=fd.filter(d=>!isDnf(d)).map(d=>{
+    const sim=dv?cur.filter(p=>p!==dv).concat([d]):cur.filter(p=>D2T[p]!==D2T[d]).concat([d]);
+    const err=chkD(sim);
+    const star=TOP_DT.includes(D2T[d])?'⭐ ':'';
+    return`<option value="${d}" ${err?'disabled style="color:#f55"':''} title="${err||''}">${star}${d}${err?' ✗':''}</option>`;
+  }).join('');
+  document.getElementById('oErr').classList.add('hidden');
+}
+ 
+// Called when "Gebe ab" changes for a TEAM pick
 function upOpenTeamPick(){
   const{ft,pi}=window._od;
   const pt=S.playerTeams[pi];
@@ -925,108 +1033,119 @@ function upOpenTeamPick(){
   }).join('');
   document.getElementById('oErr').classList.add('hidden');
 }
-function upOpen(){const type=document.getElementById('oT').value;const{fd,ft,pi}=window._od;const pt=S.playerTeams[pi];if(!type){['oDw','oPw','oBw'].forEach(i=>document.getElementById(i).classList.add('hidden'));return;}['oDw','oPw','oBw'].forEach(i=>document.getElementById(i).classList.remove('hidden'));
+ 
+// Called when the type dropdown changes (Fahrer / Team)
+function upOpen(){
+  const type=document.getElementById('oT').value;
+  const{fd,ft,pi}=window._od;
+  const pt=S.playerTeams[pi];
+ 
+  if(!type){
+    ['oDw','oPw','oBw'].forEach(i=>document.getElementById(i).classList.add('hidden'));
+    return;
+  }
+  ['oDw','oPw','oBw'].forEach(i=>document.getElementById(i).classList.remove('hidden'));
+ 
   if(type==='d'){
+    // Populate "Gebe ab" with current drivers
     const cur=pt.drivers.filter(Boolean);
-    document.getElementById('oD').innerHTML=cur.map(d=>{const dnf=isDnf(d);return`<option value="${d}" ${dnf?'disabled style="color:#f55"':''} title="${dnf?'DNF':''}">${d}${dnf?' (DNF ✗)':''}</option>`;}).join('');
-    const dv=document.getElementById('oD').value;
-    document.getElementById('oP').innerHTML=fd.map(d=>{if(isDnf(d))return`<option value="${d}" disabled style="color:#f55">${d} (DNF ✗)</option>`;const sim=dv?cur.filter(p=>p!==dv).concat([d]):cur.filter(p=>D2T[p]!==D2T[d]).concat([d]);const err=chkD(sim);const star=TOP_DT.includes(D2T[d])?'⭐ ':'';return`<option value="${d}" ${err?'disabled style="color:#f55"':''} title="${err||''}">${star}${d}${err?' ✗':''}</option>`;}).join('');
-  }else{
+    document.getElementById('oD').innerHTML=cur.map(d=>{
+      const dnf=isDnf(d);
+      return`<option value="${d}" ${dnf?'disabled style="color:#f55"':''} title="${dnf?'DNF':''}">${d}${dnf?' (DNF ✗)':''}</option>`;
+    }).join('');
+    // Wire onchange to driver handler
+    document.getElementById('oD').onchange=upOpenDriverPick;
+    // Populate "Nehme" based on first selected driver
+    upOpenDriverPick();
+  } else {
+    // Populate "Gebe ab" with current teams (including placeholders)
     const allTeams=pt.teams.filter(t=>t);
     document.getElementById('oD').innerHTML=allTeams.map(t=>`<option value="${t}">${t===PLACEHOLDER?'— Freie Wahl (Platzhalter)':t}</option>`).join('');
-    // Read dv AFTER oD is rendered
-    const dv=document.getElementById('oD').value||allTeams[0]||'';
-    // Other teams = everything except the slot being given away (ignore placeholder)
-    const otherTeams=pt.teams.filter(x=>x&&x!==dv&&x!==PLACEHOLDER);
-    document.getElementById('oP').innerHTML=ft.map(t=>{
-      const testT=[...otherTeams,t];
-      const err=chkT(testT);
-      return`<option value="${t}" ${err?'disabled style="color:#f55"':''} title="${err||''}">${TOP_T.includes(t)?'⭐ ':''}${t}${err?' ✗':''}</option>`;
-    }).join('');
+    // Wire onchange to team handler
+    document.getElementById('oD').onchange=upOpenTeamPick;
+    // Populate "Nehme" based on first selected team
+    upOpenTeamPick();
   }
   document.getElementById('oErr').classList.add('hidden');
 }
-async function doOpen(){if(!myTurn())return;const pick=cp();const type=document.getElementById('oT').value;if(!type){toast('Typ wählen',1);return;}const pv=document.getElementById('oP').value,dv=document.getElementById('oD').value;if(!pv||!dv){toast('Alle Felder ausfüllen',1);return;}const pt=S.playerTeams[pick.pi];const errEl=document.getElementById('oErr');
+ 
+async function doOpen(){
+  if(!myTurn())return;
+  const pick=cp();
+  const type=document.getElementById('oT').value;
+  if(!type){toast('Typ wählen',1);return;}
+  const pv=document.getElementById('oP').value,dv=document.getElementById('oD').value;
+  if(!pv||!dv){toast('Alle Felder ausfüllen',1);return;}
+  const pt=S.playerTeams[pick.pi];
+  const errEl=document.getElementById('oErr');
+ 
   if(type==='d'){
-    const nd=[...pt.drivers];nd[nd.indexOf(dv)]=pv;
-    const e=chkD(nd);if(e){errEl.textContent=`Regelverstoß: ${e}`;errEl.classList.remove('hidden');return;}
+    const nd=[...pt.drivers];
+    nd[nd.indexOf(dv)]=pv;
+    const e=chkD(nd);
+    if(e){errEl.textContent=`Regelverstoß: ${e}`;errEl.classList.remove('hidden');return;}
     pt.drivers[pt.drivers.indexOf(dv)]=pv;
-  }else{
-    // Find the slot — could be placeholder or real team
+  } else {
     const idx=pt.teams.indexOf(dv);
     if(idx===-1){toast('Team nicht gefunden',1);return;}
     const nt=[...pt.teams];nt[idx]=pv;
-    const e=chkT(nt);if(e){errEl.textContent=`Regelverstoß: ${e}`;errEl.classList.remove('hidden');return;}
+    const e=chkT(nt);
+    if(e){errEl.textContent=`Regelverstoß: ${e}`;errEl.classList.remove('hidden');return;}
     pt.teams[idx]=pv;
   }
-  pick.done=true;pick.action={type:'open',t:type,pv,dv};await advance();
+  pick.done=true;pick.action={type:'open',t:type,pv,dv};
+  await advance();
 }
+ 
 async function skipPick(){if(!myTurn())return;const pick=cp();if(!pick)return;pick.done=true;pick.action={type:'skip'};await advance();}
 async function advance(){const d=S.draft;d.cur++;const sy=window.scrollY;await push();if(d.cur>=d.picks.length){completeDraft();return;}rDraft();requestAnimationFrame(()=>window.scrollTo({top:sy}));}
-
+ 
 // END
 async function completeDraft(){S.draft.complete=true;S.appPhase='end';await push();rEnd();showV('vEnd');}
 function rEnd(){const b=document.getElementById('endBody');b.innerHTML='';S.ranking.forEach((playerIdx,ri)=>{const rank=ri+1,pt=S.playerTeams[playerIdx];const pc=rank===1?'g':rank===2?'s':rank===3?'b':'';const row=document.createElement('div');row.className='erow';row.innerHTML=`<div class="epos ${pc}">${rank}</div><div class="ename">${PLAYERS[playerIdx]}</div><div class="btags">${pt.drivers.filter(Boolean).map(dtag).join('')}</div><div class="btags">${pt.teams.filter(Boolean).map(t=>ttag(t,playerIdx)).join('')}</div>`;b.appendChild(row);});const bar=document.getElementById('endBar');bar.innerHTML=ME?.isAdmin?`<button class="big-btn red" style="width:auto;padding:0.65rem 2rem;font-size:0.78rem" onclick="nextDraft()">Nächsten Draft starten →</button>`:`<span style="font-size:0.75rem;font-weight:500;color:var(--ink3)">Admin startet den nächsten Draft</span>`;}
 async function nextDraft(){if(!ME?.isAdmin)return;S.ranking=[];S.draft=null;S.appPhase='ranking';S.dnfDrivers=[];await push();rRanking();showV('vRanking');}
-
+ 
 // RANDOM FILL (testing only)
 function randomFillAll(){
-  // Reset all
-  S.playerTeams = PLAYERS.map(()=>({drivers:['','','','',''],teams:['','']}));
-
-  // For each player, assign 5 valid drivers and 2 valid teams
-  // Track global ownership
-  const driverOwnership = {}; // driver -> count
-  const teamOwnership = {};   // team -> count
-  DL.forEach(d=>driverOwnership[d]=0);
-  TL.forEach(t=>teamOwnership[t]=0);
-
-  PLAYERS.forEach((_, pi) => {
-    const pt = S.playerTeams[pi];
-
-    // Pick 5 drivers: respecting rules
-    let attempts = 0;
-    while(pt.drivers.filter(Boolean).length < 5 && attempts < 1000) {
+  S.playerTeams=PLAYERS.map(()=>({drivers:['','','','',''],teams:['','']}));
+  const driverOwnership={};const teamOwnership={};
+  DL.forEach(d=>driverOwnership[d]=0);TL.forEach(t=>teamOwnership[t]=0);
+  PLAYERS.forEach((_,pi)=>{
+    const pt=S.playerTeams[pi];
+    let attempts=0;
+    while(pt.drivers.filter(Boolean).length<5&&attempts<1000){
       attempts++;
-      // shuffle drivers
-      const shuffled = [...DL].sort(()=>Math.random()-0.5);
-      for(const d of shuffled) {
-        if(driverOwnership[d] >= 2) continue;
-        const testD = [...pt.drivers.filter(Boolean), d];
-        if(chkD(testD)) continue;
-        const slot = pt.drivers.indexOf('');
-        if(slot === -1) break;
-        pt.drivers[slot] = d;
-        driverOwnership[d]++;
-        break;
+      const shuffled=[...DL].sort(()=>Math.random()-0.5);
+      for(const d of shuffled){
+        if(driverOwnership[d]>=2)continue;
+        const testD=[...pt.drivers.filter(Boolean),d];
+        if(chkD(testD))continue;
+        const slot=pt.drivers.indexOf('');
+        if(slot===-1)break;
+        pt.drivers[slot]=d;driverOwnership[d]++;break;
       }
     }
-
-    // Pick 2 teams: respecting rules
-    attempts = 0;
-    while(pt.teams.filter(Boolean).length < 2 && attempts < 1000) {
+    attempts=0;
+    while(pt.teams.filter(Boolean).length<2&&attempts<1000){
       attempts++;
-      const shuffled = [...TL].sort(()=>Math.random()-0.5);
-      for(const t of shuffled) {
-        if(teamOwnership[t] >= 2) continue;
-        const testT = [...pt.teams.filter(Boolean), t];
-        if(chkT(testT)) continue;
-        const slot = pt.teams.indexOf('');
-        if(slot === -1) break;
-        pt.teams[slot] = t;
-        teamOwnership[t]++;
-        break;
+      const shuffled=[...TL].sort(()=>Math.random()-0.5);
+      for(const t of shuffled){
+        if(teamOwnership[t]>=2)continue;
+        const testT=[...pt.teams.filter(Boolean),t];
+        if(chkT(testT))continue;
+        const slot=pt.teams.indexOf('');
+        if(slot===-1)break;
+        pt.teams[slot]=t;teamOwnership[t]++;break;
       }
     }
   });
-
-  rTeams();
-  toast('Alle Teams zufällig befüllt!');
+  rTeams();toast('Alle Teams zufällig befüllt!');
 }
-
+ 
 // BOOT
 function boot(){if(dev)applyDev(dev);if(!dev)document.getElementById('devScr').classList.remove('hidden');else showLogin();}
 boot();
 </script>
 </body>
 </html>
+ 
