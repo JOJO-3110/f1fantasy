@@ -885,9 +885,9 @@ async function doSwap(){if(!myTurn())return;const d=S.draft,pick=cp();const ti=p
 
 // OPEN PANEL
 function bOpen(body,pick){
-  const{dc,tc}=getOwn();const pt=S.playerTeams[pick.pi];
+  const{dc,tc}=getOwn(pick.pi);const pt=S.playerTeams[pick.pi];
   const justGave=abgabeMarked[pick.pi]||[];
-  window._od={fd:DL.filter(d=>(dc[d]||0)<2),ft:TL.filter(t=>(tc[t]||0)<2&&t!==PLACEHOLDER&&!justGave.includes(t)),pi:pick.pi};
+  window._od={fd:DL.filter(d=>(dc[d]||0)<2&&!pt.drivers.includes(d)),ft:TL.filter(t=>(tc[t]||0)<2&&t!==PLACEHOLDER&&!justGave.includes(t)&&!pt.teams.includes(t)),pi:pick.pi};
   const w=document.createElement('div');
   w.innerHTML=`<div class="al al-warn">Pick ${pick.pn} / 2</div>
     <div class="input-group"><label class="afield-label">Typ</label>
