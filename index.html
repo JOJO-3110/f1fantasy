@@ -879,9 +879,100 @@ function bSwap(body,pick){
     <button class="acbtn ghost" onclick="skipPick()">Überspringen</button>`;
   body.appendChild(w);
 }
-function upSwapTarget(){const ti=parseInt(document.getElementById('sT').value);if(isNaN(ti)){['sDw','sGw','sBw'].forEach(i=>document.getElementById(i).classList.add('hidden'));return;}document.getElementById('sDw').classList.remove('hidden');document.getElementById('sGw').classList.add('hidden');document.getElementById('sBw').classList.add('hidden');upSwapGet();}
-function upSwapGet(){const pick=cp();const ti=parseInt(document.getElementById('sT').value);if(isNaN(ti))return;const tI=S.playerTeams[ti].drivers.filter(Boolean);const pI=S.playerTeams[pick.pi].drivers.filter(Boolean);const gv=document.getElementById('sD').value;document.getElementById('sGw').classList.remove('hidden');document.getElementById('sBw').classList.remove('hidden');document.getElementById('sG').innerHTML=tI.map(d=>{if(isDnf(d))return`<option value="${d}" disabled style="color:#f55">${d} (DNF ✗)</option>`;const sim=gv?pI.filter(p=>p!==gv).concat([d]):[d];const err=chkD(sim);return`<option value="${d}" ${err?'disabled style="color:#f55"':''} title="${err||''}">${d}${err?' ✗':''}</option>`;}).join('');}
-async function doSwap(){if(!myTurn())return;const d=S.draft,pick=cp();const ti=parseInt(document.getElementById('sT').value);if(isNaN(ti)){toast('Tauschpartner wählen',1);return;}const gv=document.getElementById('sG').value,dv=document.getElementById('sD').value;if(!gv||!dv){toast('Alle Felder ausfüllen',1);return;}const pPT=S.playerTeams[pick.pi],tPT=S.playerTeams[ti];const nd=[...pPT.drivers];nd[nd.indexOf(dv)]=gv;const err=chkD(nd);if(err){const e=document.getElementById('sErr');e.textContent=`Regelverstoß: ${err}`;e.classList.remove('hidden');return;}tPT.drivers[tPT.drivers.indexOf(gv)]=dv;pPT.drivers[pPT.drivers.indexOf(dv)]=gv;d.p1l.push(ti);pick.done=true;pick.action={type:'swap',ti,gv,dv};await advance();}
+
+function upSwapTarget(){
+  const ti=parseInt(document.getElementById('sT').value);
+  if(isNaN(ti)){['sDw','sGw','sBw'].forEach(i=>document.getElementById(i).classList.add('hidden'));return;}
+  document.getElementById('sDw').classList.remove('hidden');
+  document.getElementById('sGw').classList.add('hidden');
+  document.getElementById('sBw').classList.add('hidden');
+  upSwapGet();
+}
+
+function upSwapGet(){
+  const pick=cp();
+  const ti=parseInt(document.getElementById('sT').value);
+  if(isNaN(ti))return;
+  const tI=S.playerTeams[ti].drivers.filter(Boolean);
+  const pI=S.playerTeams[pick.pi].drivers.filter(Boolean);
+  const dv=document.getElementById('sD').value;
+
+  document.getElementById('sGw').classList.remove('hidden');
+  document.getElementById('sBw').classList.remove('hidden');
+
+  // FIX: filter out drivers the current player already has (excluding the one they're giving away)
+  // and also validate that the target player won't get a duplicate
+  document.getElementById('sG').innerHTML=tI.map(d=>{
+    // Can't take a DNF driver
+    if(isDnf(d))return`<option value="${d}" disabled style="color:#f55">${d} (DNF ✗)</option>`;
+
+    // Can't take a driver we already own (other than the one we're giving away)
+    const myOtherDrivers=pI.filter(p=>p!==dv);
+    if(myOtherDrivers.includes(d))return`<option value="${d}" disabled style="color:#f55">${d} (bereits im Team ✗)</option>`;
+
+    // Check: would MY new lineup be valid?
+    const myNewDrivers=myOtherDrivers.concat([d]);
+    const myErr=chkD(myNewDrivers);
+    if(myErr)return`<option value="${d}" disabled style="color:#f55" title="${myErr}">${d} ✗</option>`;
+
+    // Check: would TARGET's new lineup be valid? (they receive dv)
+    const targetOtherDrivers=tI.filter(p=>p!==d);
+    if(dv){
+      // Target would also get dv — make sure they don't already have dv in their other slots
+      if(targetOtherDrivers.includes(dv))return`<option value="${d}" disabled style="color:#f55">${d} (Tauschpartner hat ${dv} bereits ✗)</option>`;
+      const targetNewDrivers=targetOtherDrivers.concat([dv]);
+      const targetErr=chkD(targetNewDrivers);
+      if(targetErr)return`<option value="${d}" disabled style="color:#f55" title="Tauschpartner: ${targetErr}">${d} ✗ (Tauschpartner-Regel)</option>`;
+    }
+
+    return`<option value="${d}">${d}</option>`;
+  }).join('');
+}
+
+async function doSwap(){
+  if(!myTurn())return;
+  const d=S.draft,pick=cp();
+  const ti=parseInt(document.getElementById('sT').value);
+  if(isNaN(ti)){toast('Tauschpartner wählen',1);return;}
+  const gv=document.getElementById('sG').value,dv=document.getElementById('sD').value;
+  if(!gv||!dv){toast('Alle Felder ausfüllen',1);return;}
+  const pPT=S.playerTeams[pick.pi],tPT=S.playerTeams[ti];
+  const errEl=document.getElementById('sErr');
+
+  // --- FIX: Validate BOTH sides before applying the swap ---
+
+  // Build new lineup for current player (receives gv, gives dv)
+  const myNewDrivers=[...pPT.drivers];
+  myNewDrivers[myNewDrivers.indexOf(dv)]=gv;
+  const myErr=chkD(myNewDrivers);
+  if(myErr){errEl.textContent=`Regelverstoß (Du): ${myErr}`;errEl.classList.remove('hidden');return;}
+
+  // Check for duplicate in MY team
+  if(new Set(myNewDrivers.filter(Boolean)).size < myNewDrivers.filter(Boolean).length){
+    errEl.textContent='Regelverstoß: Doppelter Fahrer in deinem Team';errEl.classList.remove('hidden');return;
+  }
+
+  // Build new lineup for target player (receives dv, gives gv)
+  const targetNewDrivers=[...tPT.drivers];
+  const gvIdx=targetNewDrivers.indexOf(gv);
+  if(gvIdx===-1){toast('Fahrer nicht gefunden im Tauschpartner-Team',1);return;}
+  targetNewDrivers[gvIdx]=dv;
+  const targetErr=chkD(targetNewDrivers);
+  if(targetErr){errEl.textContent=`Regelverstoß (${PLAYERS[ti]}): ${targetErr}`;errEl.classList.remove('hidden');return;}
+
+  // Check for duplicate in TARGET's team
+  if(new Set(targetNewDrivers.filter(Boolean)).size < targetNewDrivers.filter(Boolean).length){
+    errEl.textContent=`Regelverstoß: ${PLAYERS[ti]} würde denselben Fahrer doppelt haben`;errEl.classList.remove('hidden');return;
+  }
+
+  // All good — apply the swap
+  tPT.drivers[gvIdx]=dv;
+  pPT.drivers[pPT.drivers.indexOf(dv)]=gv;
+  d.p1l.push(ti);
+  pick.done=true;
+  pick.action={type:'swap',ti,gv,dv};
+  await advance();
+}
 
 // OPEN PANEL
 function bOpen(body,pick){
