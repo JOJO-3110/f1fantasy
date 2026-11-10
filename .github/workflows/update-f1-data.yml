@@ -1,0 +1,27 @@
+name: F1-Daten aktualisieren
+
+# Holt Punkte, Ergebnisse und Fotos und speichert sie in Supabase.
+# Läuft jede Stunde von allein und lässt sich über "Run workflow" von Hand starten.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: f1-daten
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Daten holen und speichern
+        run: node scripts/fetch-data.js
