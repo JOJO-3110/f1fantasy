@@ -999,8 +999,9 @@ function guessPhoto(name){
   return `https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/${f[0].toUpperCase()}/${code}_${f}_${p.slice(1).join('_')}/${code.toLowerCase()}.png.transform/1col/image.png`;
 }
 function photoList(name){const l=[];const d=DMAP[name];if(d&&d.photo)l.push(d.photo);const g=guessPhoto(name);if(g&&!l.includes(g))l.push(g);return l;}
+function phOk(img){const s=img.previousElementSibling;if(s&&s.tagName.toLowerCase()==='svg')s.style.display='none';}
 function phErr(img){const l=photoList(img.dataset.k),i=(+img.dataset.i)+1;if(i<l.length){img.dataset.i=i;img.src=l[i];}else img.remove();}
-function photoImg(name,cls){const l=photoList(name);if(!l.length)return '';return `<img class="${cls}" src="${esc(l[0])}" data-k="${esc(name)}" data-i="0" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="phErr(this)">`;}
+function photoImg(name,cls){const l=photoList(name);if(!l.length)return '';return `<img class="${cls}" src="${esc(l[0])}" data-k="${esc(name)}" data-i="0" alt="" loading="lazy" referrerpolicy="no-referrer" onload="phOk(this)" onerror="phErr(this)">`;}
 
 /* ===================== KARTEN ===================== */
 function tierOf(r){return r==null?{k:'n',fr:'#aab4c2',ink:'#e4e9f1',inkL:'#4d586d'}:r>=90?{k:'g',fr:'#e3a92f',ink:'#f7d27a',inkL:'#8a5d00'}:r>=75?{k:'s',fr:'#aab4c2',ink:'#e4e9f1',inkL:'#4d586d'}:{k:'b',fr:'#b9743c',ink:'#e6aa7c',inkL:'#8f4a1c'};}
