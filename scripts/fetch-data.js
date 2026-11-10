@@ -11,7 +11,8 @@
   Quellen (alle öffentlich, ohne Login):
    - F1 Fantasy Feeds:   Fantasy-Punkte je Fahrer und Team und Rennen   (inoffiziell, nicht dokumentiert)
    - Jolpica (Ergast):   Rennkalender, Zieleinlauf, DNF
-   - OpenF1:             Startnummern und Fahrerfotos
+   - OpenF1:             Startnummern
+   - formula1.com:       aktuelle Fahrerfotos der Saison (Fahrerseite)
 */
 
 const SEASON = Number(process.env.SEASON || 2026);
@@ -180,9 +181,32 @@ async function loadOpenF1() {
   for (const x of j) {
     const d = canonDriver(x.full_name || `${x.first_name} ${x.last_name}`);
     if (!d) continue;
-    res[d.name] = { num: num(x.driver_number), photo: x.headshot_url || null, code: x.name_acronym || null };
+    const m = /\/([a-z]+\d\d)\.png/i.exec(x.headshot_url || '');
+    res[d.name] = { num: num(x.driver_number), photo: x.headshot_url || null, code: x.name_acronym || null, f1id: m ? m[1].toLowerCase() : null };
   }
   return res;
+}
+
+/* ---------- formula1.com: aktuelle Fahrerfotos ----------
+   Die Fahrerseite verlinkt je Fahrer ein Ganzkörperfoto der Saison, z. B.
+   .../common/f1/2026/mclaren/lannor01/2026mclarenlannor01right.webp
+   Wir schneiden es per Bild-URL auf Kopf und Schultern zu. Ergebnis: Kennung (lannor01) -> URL. */
+async function loadF1Photos() {
+  let html = '';
+  try {
+    const res = await fetch('https://www.formula1.com/en/drivers', { headers: { 'user-agent': 'Mozilla/5.0 (compatible; f1-liga-updater/1.0)', accept: 'text/html' } });
+    if (res.ok) html = await res.text();
+  } catch { /* optional */ }
+  const out = {};
+  const re = new RegExp(`/common/f1/${SEASON}/([a-z0-9]+)/([a-z]+\\d\\d)/${SEASON}\\1\\2right\\.webp`, 'g');
+  for (const m of html.matchAll(re)) {
+    out[m[2]] = `https://media.formula1.com/image/upload/c_fill,g_north,w_440,h_440/q_auto/${m[0].replace(/^\//, '')}`;
+  }
+  return out;
+}
+function f1IdGuess(name) {
+  const p = String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, '').trim().split(/\s+/);
+  return p.length < 2 ? null : p[0].slice(0, 3) + p.slice(1).join('').slice(0, 3) + '01';
 }
 
 /* ---------- Bisherige Daten aus Supabase ---------- */
@@ -295,7 +319,9 @@ async function main() {
 
   // Fotos und Startnummern
   const of1 = await loadOpenF1();
-  log(`OpenF1: ${Object.keys(of1).length} Fahrer mit Foto/Nummer`);
+  log(`OpenF1: ${Object.keys(of1).length} Fahrer mit Nummer`);
+  const f1p = await loadF1Photos();
+  log(`formula1.com: ${Object.keys(f1p).length} aktuelle Fahrerfotos`);
 
   // Team-Fahrerlisten
   // In die Teamlisten kommen nur aktuelle Fahrer: bekannte Fahrer immer, unbekannte (Ersatzfahrer, Ausgeschiedene)
@@ -326,7 +352,7 @@ async function main() {
       return {
         name: d.name, code: d.code || o.code || p.code || d.name.split(' ').pop().slice(0, 3).toUpperCase(), team: d.team,
         num: o.num != null ? o.num : (p.num != null ? p.num : null),
-        photo: o.photo || p.photo || null,
+        photo: f1p[o.f1id] || f1p[f1IdGuess(d.name)] || (p.photo && p.photo.includes('/image/upload/') ? p.photo : null) || o.photo || p.photo || null,
         pts: fill(d.pts), pos: fill(d.pos), dnf: fill(d.dnf),
       };
     }),
